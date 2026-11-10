@@ -3,3 +3,4 @@
 -e packages/sharepoint
 -e packages/rag
 -e apps/mcp-server
+-e evals

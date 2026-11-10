@@ -9,10 +9,10 @@ from . import config
 SCHEMA = Path(__file__).with_name("schema.sql")
 
 
-def migrate() -> None:
+def migrate(url: str | None = None) -> None:
     """Applies schema.sql (idempotent). The vector extension must exist before register_vector."""
     sql = SCHEMA.read_text().replace("{{DIMENSIONS}}", str(config.EMBEDDING_DIMENSIONS))
-    with psycopg.connect(config.DATABASE_URL, autocommit=True) as conn:
+    with psycopg.connect(url or config.DATABASE_URL, autocommit=True) as conn:
         conn.execute(sql)
         # CREATE TABLE IF NOT EXISTS won't change an existing column, so detect config/table drift here.
         row = conn.execute(
@@ -25,9 +25,9 @@ def migrate() -> None:
             )
 
 
-def create_pool() -> AsyncConnectionPool:
+def create_pool(url: str | None = None) -> AsyncConnectionPool:
     """Call migrate() first (it creates the vector extension), then `await pool.open()`."""
-    return AsyncConnectionPool(config.DATABASE_URL, configure=register_vector_async, open=False)
+    return AsyncConnectionPool(url or config.DATABASE_URL, configure=register_vector_async, open=False)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,17 @@
+[project]
+name = "sharepoint-evals"
+version = "0.1.0"
+description = "Inspect AI regression and capability evals for SharePoint extraction and retrieval"
+requires-python = ">=3.11"
+dependencies = ["inspect-ai>=0.3.200", "agent-client-protocol>=0.12,<1",  # 1.0 dropped acp.helpers, which inspect-ai imports
+    "sharepoint-rag", "psycopg[binary]>=3.2", "pgvector>=0.4"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["sharepoint_evals"]
+
+[tool.setuptools.package-data]
+sharepoint_evals = ["dataset/*.md"]

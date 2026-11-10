@@ -6,6 +6,7 @@ SharePoint Q&A agent with a built-in MCP server. Entra ID delegated auth means u
 apps/mcp-server/      MCP server and tool definitions (python -m mcp_server)
 packages/sharepoint/  Entra ID auth + Microsoft Graph client (sharepoint_client)
 packages/rag/         pgvector schema, DB access, Gemini embeddings (sharepoint_rag)
+evals/                Inspect AI regression + capability evals (see evals/README.md)
 infra/                docker-compose.yml (Postgres + pgvector)
 ```
 One shared `.venv` at the repo root; each package is installed editable by `requirements.txt`. Config comes from the root `.env`.
