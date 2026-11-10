@@ -9,7 +9,7 @@ from mcp.server.fastmcp import Context, FastMCP
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, Response
 
-from . import auth, config, graph
+from sharepoint_client import auth, config, graph
 
 mcp = FastMCP(
     "sharepoint-knowledge-agent",

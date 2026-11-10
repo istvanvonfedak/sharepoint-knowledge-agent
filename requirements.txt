@@ -1,6 +1,5 @@
-mcp>=1.27,<2
-msal>=1.39
-httpx>=0.28
-uvicorn>=0.54
-python-dotenv>=1.2
-defusedxml>=0.7
+# One shared venv; each workspace member is installed editable. Order matters: apps depend on
+# packages/ by bare name, which pip can only resolve because they are installed first.
+-e packages/sharepoint
+-e packages/rag
+-e apps/mcp-server

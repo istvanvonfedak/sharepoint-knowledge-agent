@@ -19,6 +19,18 @@ _pending: dict[str, tuple[str, dict, float]] = {}
 _accounts: dict[str, dict] = {}
 
 
+def get_app_token() -> str:
+    """App-only Graph token (client credentials) for background indexing.
+
+    Blocking network call: from async code use `asyncio.to_thread`. Without Graph *application*
+    permissions (Sites.Selected or Sites.Read.All + Files.Read.All, admin-consented) the token has
+    no roles and every Graph call fails with 401/403 (see README)."""
+    result = _app.acquire_token_for_client(["https://graph.microsoft.com/.default"])
+    if "access_token" not in result:
+        raise RuntimeError(result.get("error_description", "App-only token request failed"))
+    return result["access_token"]
+
+
 class NotSignedInError(Exception):
     def __init__(self) -> None:
         super().__init__("Not signed in to Microsoft. Call the sharepoint_login tool first.")

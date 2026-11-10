@@ -1,0 +1,13 @@
+[project]
+name = "mcp-server"
+version = "0.1.0"
+description = "MCP server exposing SharePoint tools at /api/mcp"
+requires-python = ">=3.11"
+dependencies = ["mcp>=1.27,<2", "uvicorn>=0.54", "sharepoint-client"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["mcp_server"]
