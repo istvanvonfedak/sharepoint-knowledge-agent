@@ -15,6 +15,7 @@ docker compose -f infra/docker-compose.yml up -d
 |---|---|
 | `extraction_regression` | Every dataset doc, as md / html / docx: key facts survive extract + chunk, no oversized or empty chunks, title kept in heading paths |
 | `acl_regression` | Restricted chunks never appear for callers without access, in vector, keyword and hybrid mode, plus positive controls (HR sees HR docs, execs see exec docs; HR does not see exec docs and vice versa) |
+| `verification_regression` | Layer 2: a file the index ACL allows but SharePoint now denies (access revoked since indexing) is never returned, other results backfill, and a failing access check returns nothing (fail closed) |
 
 ## Capability (a quality gradient, not pass/fail)
 `retrieval_capability` asks 13 questions (paraphrased, exact-identifier, cross-lingual EN/PT, and permission-restricted) and reports hit@1/3/5 and MRR per search mode. `run.py` prints a comparison and fails only if **hybrid** falls below the floors in `CAPABILITY_FLOORS`. Use it to compare changes to chunk size, embedding model/dimensions, RRF weights or reranking: `inspect eval evals/sharepoint_evals/capability.py -T mode=vector`.

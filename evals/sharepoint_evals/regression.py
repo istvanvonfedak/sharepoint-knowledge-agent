@@ -1,5 +1,7 @@
 """Regression evals: deterministic, no LLM. Any score below 1.0 means a behaviour we promised broke.
 
+- verification_regression: layer 2. A file the index says the caller may read but SharePoint now denies
+  (access revoked since indexing) is never returned, and a failing access check returns nothing.
 - extraction_regression: key facts survive extract+chunk for every dataset doc in md/html/docx form.
 - acl_regression: restricted chunks never appear for callers without access, in any search mode.
 """
@@ -178,3 +180,75 @@ def acl_regression() -> Task:
         for mode in ("vector", "keyword", "hybrid")
     ]
     return Task(dataset=MemoryDataset(samples), solver=acl_probe(), scorer=acl_respected(), model=MOCK)
+
+
+# ---- Layer-2 (live access check) regression -------------------------------------------------
+# (persona, query, revoked since indexing, must still return something other than the revoked docs)
+VERIFY_CASES = [
+    ("alice", "meals reimbursed while travelling for work", ["expenses.md"]),
+    ("alice", "annual leave days carried over", ["leave-policy.md"]),
+    ("alice", "security incident phishing email", ["security-incident.md", "it-helpdesk.md"]),
+    ("hr", "base salary band for level L5", ["salaries-2025.md"]),  # index ACL allows HR; SharePoint no longer does
+    ("alice", "meals reimbursed while travelling for work", []),  # control: nothing revoked, expenses still returned
+]
+
+
+def _verifier(revoked: list[str], raises: bool = False):
+    # store.py indexes each doc with item_id == its file name, so `revoked` holds file names.
+    async def verify(items):
+        if raises:
+            raise RuntimeError("simulated Graph outage")
+        return {(drive, item) for drive, item in items if item not in revoked}
+
+    return verify
+
+
+@solver
+def verified_probe():
+    async def solve(state: TaskState, generate: Generate) -> TaskState:
+        m = state.metadata
+        try:
+            hits = await retrieve(state.input_text, m["persona"], m["mode"], k=5, verify=_verifier(m["revoked"], m["verifier_raises"]))
+            state.metadata["returned"], state.metadata["error"] = ranked_docs(hits), False
+        except Exception:  # any verifier failure (outage, 401, timeout) must fail closed
+            state.metadata["returned"], state.metadata["error"] = [], True
+        state.output = ModelOutput.from_content(MOCK, ", ".join(state.metadata["returned"]))
+        return state
+
+    return solve
+
+
+@scorer(metrics=[accuracy()])
+def revocation_respected():
+    async def score(state: TaskState, target: Target) -> Score:
+        m = state.metadata
+        returned = m["returned"]
+        problems = []
+        if m["verifier_raises"]:
+            # Fail closed: an unverifiable answer must be no answer, not an unverified one.
+            if not m["error"] or returned:
+                problems.append(f"verifier failed but returned {returned}")
+        else:
+            if leaked := [d for d in m["revoked"] if d in returned]:
+                problems.append(f"REVOKED docs returned: {leaked}")
+            if m["mode"] != "keyword" and not returned:
+                problems.append("search returned nothing")  # over-fetch should backfill from other docs
+            if not m["revoked"] and "expenses.md" not in returned:
+                problems.append("control: unrevoked expenses.md missing")
+        return Score(value=INCORRECT if problems else CORRECT, explanation="; ".join(problems) or f"ok: {returned}")
+
+    return score
+
+
+@task
+def verification_regression() -> Task:
+    cases = [(p, q, r, False) for p, q, r in VERIFY_CASES] + [("alice", "meals reimbursed while travelling", [], True)]
+    samples = [
+        Sample(
+            id=f"{persona}:{mode}:{i}", input=query, target="revoked access never returned",
+            metadata={"persona": persona, "mode": mode, "revoked": revoked, "verifier_raises": raises},
+        )
+        for i, (persona, query, revoked, raises) in enumerate(cases)
+        for mode in ("vector", "keyword", "hybrid")
+    ]
+    return Task(dataset=MemoryDataset(samples), solver=verified_probe(), scorer=revocation_respected(), model=MOCK)

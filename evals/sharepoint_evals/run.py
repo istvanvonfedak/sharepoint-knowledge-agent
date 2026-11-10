@@ -11,7 +11,7 @@ import sys
 from inspect_ai import eval as inspect_eval
 
 from sharepoint_evals.capability import retrieval_capability
-from sharepoint_evals.regression import acl_regression, extraction_regression
+from sharepoint_evals.regression import acl_regression, extraction_regression, verification_regression
 
 MODES = ("vector", "keyword", "hybrid")
 # Floors for the hybrid mode; raise them as retrieval improves, never lower them to make a run pass.
@@ -37,7 +37,7 @@ def _errored(log) -> bool:
 
 def run_regression(log_dir: str | None) -> bool:
     ok = True
-    for log in inspect_eval([extraction_regression(), acl_regression()], log_dir=log_dir, display="none"):
+    for log in inspect_eval([extraction_regression(), acl_regression(), verification_regression()], log_dir=log_dir, display="none"):
         if _errored(log):
             ok = False
             continue

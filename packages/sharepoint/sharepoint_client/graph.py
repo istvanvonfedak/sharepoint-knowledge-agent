@@ -1,10 +1,14 @@
 """Thin Microsoft Graph client. All calls run as the signed-in user."""
+import asyncio
 import io
+import logging
 import re
 import zipfile
 from urllib.parse import quote
 import defusedxml.ElementTree as ElementTree
 import httpx
+
+log = logging.getLogger(__name__)
 
 GRAPH = "https://graph.microsoft.com/v1.0"
 TEXT_EXTENSIONS = (".txt", ".md", ".csv", ".json", ".xml", ".htm", ".html", ".log")
@@ -150,3 +154,76 @@ async def read_file_text(token: str, drive_id: str, item_id: str, max_bytes: int
         "truncated": len(data) > max_bytes or meta.get("size", 0) > max_bytes,
         "text": data[:max_bytes].decode("utf-8", errors="ignore"),  # ignore: a cut multi-byte tail is dropped
     }
+
+
+BATCH_SIZE = 20  # Graph JSON batching limit
+MAX_RETRY_WAIT = 10.0  # cap on honouring Retry-After
+_DENIED = {403, 404}  # forbidden, or gone/hidden: either way the user cannot open it
+_TRANSIENT = {0, 429, 500, 502, 503, 504}  # 0 = Graph returned no response for the item
+
+
+def _retry_wait(retry_after: str | None, default: float = 1.0) -> float:
+    return min(float(retry_after), MAX_RETRY_WAIT) if retry_after and retry_after.isdigit() else default
+
+
+async def _post_batch(client: httpx.AsyncClient, token: str, body: dict) -> dict:
+    """POST /$batch, retrying throttling/5xx on the batch call itself. A 401 means the user's token is bad."""
+    for attempt in range(3):
+        res = await client.post(f"{GRAPH}/$batch", json=body, headers={"Authorization": f"Bearer {token}"})
+        if res.status_code == 401:
+            raise PermissionError("Microsoft Graph rejected the user's token; sign in again")
+        if res.status_code in _TRANSIENT and attempt < 2:
+            await asyncio.sleep(_retry_wait(res.headers.get("Retry-After"), 2**attempt))
+            continue
+        if res.is_error:
+            raise RuntimeError(f"Graph {res.status_code}: {res.text}")
+        return res.json()
+    raise AssertionError("unreachable")
+
+
+async def _batch_status(
+    client: httpx.AsyncClient, token: str, items: list[tuple[str, str]]
+) -> tuple[dict[tuple[str, str], int], float]:
+    """Per-item HTTP status (0 if Graph omitted it) and the longest Retry-After seen in the sub-responses."""
+    body = {
+        "requests": [
+            {"id": str(i), "method": "GET", "url": f"/drives/{_seg(d)}/items/{_seg(it)}?$select=id"}
+            for i, (d, it) in enumerate(items)
+        ]
+    }
+    responses = {r["id"]: r for r in (await _post_batch(client, token, body))["responses"]}
+    statuses = {item: responses.get(str(i), {}).get("status", 0) for i, item in enumerate(items)}
+    wait = max((_retry_wait(r.get("headers", {}).get("Retry-After")) for r in responses.values() if r.get("status") in _TRANSIENT), default=1.0)
+    return statuses, wait
+
+
+async def _check_all(client: httpx.AsyncClient, token: str, items: list[tuple[str, str]]) -> tuple[dict[tuple[str, str], int], float]:
+    chunks = [items[i : i + BATCH_SIZE] for i in range(0, len(items), BATCH_SIZE)]
+    results = await asyncio.gather(*(_batch_status(client, token, c) for c in chunks))
+    statuses: dict[tuple[str, str], int] = {}
+    for part, _ in results:
+        statuses.update(part)
+    return statuses, max((w for _, w in results), default=1.0)
+
+
+async def verify_access(token: str, items: list[tuple[str, str]]) -> set[tuple[str, str]]:
+    """Which (drive_id, item_id) pairs can the token's user open *right now*?
+
+    Layer 2 of permission enforcement: the index is a snapshot, so every hit is re-checked against
+    SharePoint as the user. Fails closed: only a 200 counts as access. 403/404 deny; throttled, failed
+    or missing sub-responses are retried once (honouring Retry-After), then deny and are logged rather
+    than risk showing a file. A 401 raises PermissionError since no answer can be trusted.
+    """
+    unique = list(dict.fromkeys(items))
+    async with httpx.AsyncClient(timeout=30) as client:
+        statuses, wait = await _check_all(client, token, unique)
+        retry = [i for i in unique if statuses[i] in _TRANSIENT]
+        if retry:
+            await asyncio.sleep(wait)
+            retried, _ = await _check_all(client, token, retry)
+            statuses.update(retried)
+    if any(s == 401 for s in statuses.values()):
+        raise PermissionError("Microsoft Graph rejected the user's token; sign in again")
+    if unknown := [i for i in unique if statuses[i] != 200 and statuses[i] not in _DENIED]:
+        log.warning("access check failed closed for %d item(s): statuses %s", len(unknown), {statuses[i] for i in unknown})
+    return {i for i in unique if statuses[i] == 200}

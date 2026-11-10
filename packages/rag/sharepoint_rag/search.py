@@ -1,5 +1,6 @@
 """Permission-filtered retrieval over the chunk index: vector, keyword, or hybrid (RRF)."""
 import re
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Literal
 
@@ -8,11 +9,11 @@ import psycopg
 Mode = Literal["vector", "keyword", "hybrid"]
 RRF_K = 60  # standard reciprocal-rank-fusion constant
 
-_COLUMNS = "c.id, s.id, s.name, s.web_url, c.heading_path, c.text"
+_COLUMNS = "c.id, s.id, s.name, s.web_url, c.heading_path, c.text, s.drive_id, s.item_id"
 _FROM = "FROM chunks c JOIN sources s ON s.id = c.source_id"
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Hit:
     chunk_id: int
     source_id: int
@@ -20,11 +21,16 @@ class Hit:
     web_url: str
     heading_path: str | None
     text: str
+    drive_id: str
+    item_id: str
     score: float
 
 
 def _row_to_hit(row, score: float) -> Hit:
-    return Hit(row[0], row[1], row[2], row[3], row[4], row[5], score)
+    return Hit(
+        chunk_id=row[0], source_id=row[1], name=row[2], web_url=row[3], heading_path=row[4],
+        text=row[5], drive_id=row[6], item_id=row[7], score=score,
+    )
 
 
 async def search(
@@ -73,3 +79,33 @@ async def search(
             rows[row[0]] = row
     best = sorted(scores, key=scores.__getitem__, reverse=True)[:k]
     return [_row_to_hit(rows[i], scores[i]) for i in best]
+
+
+# Given (drive_id, item_id) pairs, returns the subset the caller can open right now.
+Verifier = Callable[[list[tuple[str, str]]], Awaitable[set[tuple[str, str]]]]
+
+
+async def search_verified(
+    conn: psycopg.AsyncConnection,
+    *,
+    verify: Verifier,
+    k: int = 10,
+    overfetch: int = 3,
+    **kwargs,
+) -> list[Hit]:
+    """`search` plus layer-2 enforcement: hits whose file the caller can no longer open are dropped.
+
+    The index ACL can lag behind SharePoint (revoked sharing, deleted files), so each hit's source is
+    re-verified live. We over-fetch (`k * overfetch`) so dropped hits can be replaced; if more than
+    that many are stale (e.g. one revoked document with many chunks) the result may be shorter than k,
+    never wider. A verifier error propagates:
+    no answer is better than an unverified one.
+    """
+    wanted = k * overfetch
+    # The per-retriever candidate pool must be at least as large as the over-fetch window, or search()
+    # silently caps it (default 50) and a stale document can exhaust the window.
+    kwargs["candidates"] = max(kwargs.get("candidates", 50), wanted)
+    hits = await search(conn, k=wanted, **kwargs)
+    sources = list(dict.fromkeys((h.drive_id, h.item_id) for h in hits))
+    allowed = await verify(sources) if sources else set()
+    return [h for h in hits if (h.drive_id, h.item_id) in allowed][:k]
