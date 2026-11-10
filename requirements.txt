@@ -1,0 +1,6 @@
+mcp>=1.27,<2
+msal>=1.39
+httpx>=0.28
+uvicorn>=0.54
+python-dotenv>=1.2
+defusedxml>=0.7
