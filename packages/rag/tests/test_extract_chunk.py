@@ -3,7 +3,7 @@ import zipfile
 
 import pytest
 from sharepoint_rag.chunk import chunk_sections
-from sharepoint_rag.extract import Section, UnsupportedFileType, extract
+from sharepoint_rag.extract import ExtractionError, Section, UnsupportedFileType, extract
 
 W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
 A = 'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"'
@@ -37,11 +37,46 @@ def test_docx_text_box_not_duplicated():
     assert text.count("Boxed") == 1 and "Outer" in text
 
 
-def test_pptx_slides_in_numeric_order():
-    def slide(t):
-        return f"<p:sld {A} xmlns:p='p'><a:p><a:r><a:t>{t}</a:t></a:r></a:p></p:sld>"
+def slide(t):
+    return f"<p:sld {A} xmlns:p='p'><a:p><a:r><a:t>{t}</a:t></a:r></a:p></p:sld>"
+
+
+def test_pptx_fallback_numeric_order_without_presentation_xml():
     data = make_zip({f"ppt/slides/slide{n}.xml": slide(f"s{n}") for n in (10, 2, 1)})
-    assert [(s.heading_path, s.text) for s in extract("d.pptx", data)] == [("Slide 1", "s1"), ("Slide 2", "s2"), ("Slide 10", "s10")]
+    assert [s.text for s in extract("d.pptx", data)] == ["s1", "s2", "s10"]
+
+
+def test_pptx_follows_presentation_order():
+    R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+    pres = (f'<p:presentation xmlns:p="p" xmlns:r="{R}"><p:sldIdLst>'
+            '<p:sldId id="1" r:id="rB"/><p:sldId id="2" r:id="rA"/></p:sldIdLst></p:presentation>')
+    rels = ('<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Id="rA" Target="slides/slide1.xml"/><Relationship Id="rB" Target="slides/slide7.xml"/></Relationships>')
+    data = make_zip({"ppt/presentation.xml": pres, "ppt/_rels/presentation.xml.rels": rels,
+                     "ppt/slides/slide1.xml": slide("was-first"), "ppt/slides/slide7.xml": slide("shown-first")})
+    assert [(s.heading_path, s.text) for s in extract("d.pptx", data)] == [("Slide 1", "shown-first"), ("Slide 2", "was-first")]
+
+
+def test_robustness_nul_utf16_fences_and_corrupt_files():
+    assert extract("a.txt", "hi there".encode("utf-16"))[0].text == "hi there"
+    assert extract("a.txt", b"a\x00b")[0].text == "ab"
+    md = extract("a.md", b"# T\n```\n# comment\n```\ntext")
+    assert [s.heading_path for s in md] == ["T"] and "# comment" in md[0].text
+    with pytest.raises(ExtractionError):
+        extract("a.docx", b"not a zip")
+    with pytest.raises(ExtractionError):
+        extract("a.docx", make_zip({"other.xml": "<x/>"}))
+
+
+def test_docx_alternate_content_and_localized_styles():
+    mc = "http://schemas.openxmlformats.org/markup-compatibility/2006"
+    box = para("Boxed")
+    body = (para("Titre", "Titre1") + para("corps")
+            + f'<w:p><w:r><mc:AlternateContent xmlns:mc="{mc}"><mc:Choice>{box}</mc:Choice><mc:Fallback>{box}</mc:Fallback></mc:AlternateContent></w:r></w:p>')
+    styles = f'<w:styles {W}><w:style w:styleId="Titre1"><w:name w:val="heading 1"/></w:style></w:styles>'
+    data = make_zip({"word/document.xml": f"<w:document {W}><w:body>{body}</w:body></w:document>", "word/styles.xml": styles})
+    sections = extract("a.docx", data)
+    assert sections[0].heading_path == "Titre" and sections[0].text.count("Boxed") == 1
 
 
 def test_markdown_and_html_and_text():
@@ -85,6 +120,6 @@ def test_chunks_respect_limits_and_sections():
 
 def test_chunk_oversized_word_and_bad_overlap():
     chunks = chunk_sections([Section("", "x" * 1200)], max_chars=500, overlap=50)
-    assert [len(c.text) for c in chunks] == [500, 500, 251]  # last unit (200) plus 50 chars of overlap + newline
+    assert [len(c.text) for c in chunks] == [500, 500, 300]  # pieces overlap by 50 chars inside the split; no second tail is added
     with pytest.raises(ValueError):
         chunk_sections([], max_chars=100, overlap=100)
