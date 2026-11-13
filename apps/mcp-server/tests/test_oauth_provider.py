@@ -183,6 +183,8 @@ async def test_registration_at_cap_evicts_clients_that_never_signed_in(provider,
     for c in clients:
         await provider.register_client(c)
     await _sign_in_client(provider, clients[0])
+    for c in provider._registered_at:
+        provider._registered_at[c] -= 3600  # registered long ago
 
     await provider.register_client(_new_client(3))
     assert await provider.get_client("c0") and await provider.get_client("c3")
@@ -197,3 +199,28 @@ async def test_registration_is_rejected_when_every_client_is_active(provider, mo
         await _sign_in_client(provider, c)
     with pytest.raises(RegistrationError):
         await provider.register_client(_new_client(2))
+
+
+async def test_registration_at_cap_keeps_recent_clients_that_may_be_signing_in(provider, monkeypatch):
+    monkeypatch.setattr("mcp_server.oauth_provider.MAX_CLIENTS", 2)
+    for i in range(2):
+        await provider.register_client(_new_client(i))
+    with pytest.raises(RegistrationError):
+        await provider.register_client(_new_client(2))
+    assert await provider.get_client("c0") and await provider.get_client("c1")
+
+
+async def test_sign_out_ignores_expired_tokens_of_other_clients(provider, client):
+    from sharepoint_client import auth
+
+    other = _new_client(9)
+    await provider.register_client(other)
+    await _sign_in_client(provider, other)
+    for store in (provider._access, provider._refresh):
+        for entry in store.values():
+            entry.expires_at = int(time.time()) - 1  # other client's tokens are long expired
+
+    code = await provider.load_authorization_code(client, await sign_in(provider, client))
+    token = await provider.exchange_authorization_code(client, code)
+    assert await provider.sign_out(await provider.load_access_token(token.access_token)) is True
+    assert auth.signed_out == ["user-1"]

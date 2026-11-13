@@ -13,6 +13,9 @@ _app = msal.ConfidentialClientApplication(
 )
 
 PENDING_TTL_SECONDS = 600
+MAX_PENDING = 1000
+# MSAL errors that mean the user has to sign in again; anything else (throttling, 5xx) is transient.
+TERMINAL_ERRORS = {"invalid_grant", "interaction_required", "consent_required", "login_required"}
 
 # OAuth `state` -> (caller context, MSAL auth-code flow incl. PKCE verifier, created-at)
 _pending: dict[str, tuple[Any, dict, float]] = {}
@@ -40,6 +43,8 @@ class NotSignedInError(Exception):
 def start_login(context: Any) -> str:
     """Begins the Entra sign-in; `context` is handed back by `complete_login` for the same `state`."""
     _purge_expired()
+    while len(_pending) >= MAX_PENDING:  # bound memory against a client looping on /authorize
+        _pending.pop(next(iter(_pending)), None)
     flow = _app.initiate_auth_code_flow(config.SCOPES, redirect_uri=config.REDIRECT_URI)
     _pending[flow["state"]] = (context, flow, time.monotonic())
     return flow["auth_uri"]
@@ -95,7 +100,9 @@ def get_access_token(user_id: str) -> str:
     if account is None:
         raise NotSignedInError()
     result = _app.acquire_token_silent(config.SCOPES, account=account)
-    if not result or "access_token" not in result:
-        _accounts.pop(user_id, None)
-        raise NotSignedInError()
-    return result["access_token"]
+    if result and "access_token" in result:
+        return result["access_token"]
+    if result and result.get("error") not in TERMINAL_ERRORS:
+        raise RuntimeError(f"Microsoft token refresh failed, try again: {result.get('error_description', result.get('error'))}")
+    _accounts.pop(user_id, None)
+    raise NotSignedInError()

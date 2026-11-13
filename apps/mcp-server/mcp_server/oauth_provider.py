@@ -33,6 +33,7 @@ class EntraProxyProvider:
     def __init__(self, resource_url: str) -> None:
         self._resource = resource_url.rstrip("/")
         self._clients: dict[str, OAuthClientInformationFull] = {}
+        self._registered_at: dict[str, float] = {}
         self._codes: dict[str, AuthorizationCode] = {}
         self._access: dict[str, AccessToken] = {}
         self._refresh: dict[str, RefreshToken] = {}
@@ -42,19 +43,22 @@ class EntraProxyProvider:
 
     async def register_client(self, client_info: OAuthClientInformationFull) -> None:
         if client_info.client_id is None:
-            raise ValueError("client_id is required")
+            raise RegistrationError("invalid_client_metadata", "client_id is required")
         # Open registration plus a hostile redirect_uri would hand a victim's auth code to an attacker.
         for uri in client_info.redirect_uris or []:
             if urlparse(str(uri)).hostname not in LOOPBACK_HOSTS:
                 raise RegistrationError("invalid_redirect_uri", "Only loopback redirect URIs are allowed")
         self._purge()
-        if len(self._clients) >= MAX_CLIENTS:  # make room by dropping clients that never finished signing in
+        if len(self._clients) >= MAX_CLIENTS:  # make room by dropping stale clients that never got tokens
             active = {t.client_id for store in (self._access, self._refresh) for t in store.values()}
-            for client_id in [c for c in list(self._clients) if c not in active]:
+            stale_before = time.time() - CODE_TTL_SECONDS  # younger ones may still be on the Entra login page
+            for client_id in [c for c in list(self._clients) if c not in active and self._registered_at[c] < stale_before]:
                 self._clients.pop(client_id, None)
+                self._registered_at.pop(client_id, None)
         if len(self._clients) >= MAX_CLIENTS:
             raise RegistrationError("invalid_client_metadata", "Too many registered clients")
         self._clients[client_info.client_id] = client_info
+        self._registered_at[client_info.client_id] = time.time()
 
     async def authorize(self, client: OAuthClientInformationFull, params: AuthorizationParams) -> str:
         if params.resource is not None and params.resource.rstrip("/") != self._resource:
@@ -143,6 +147,7 @@ class EntraProxyProvider:
     async def sign_out(self, token: AccessToken | RefreshToken) -> bool:
         """Revokes the user's tokens for this client. Returns True if the user's Entra sign-in was dropped too,
         which only happens once no other client holds tokens for them."""
+        self._purge()  # expired tokens of other clients must not count as "still connected"
         for store in (self._access, self._refresh):
             for key in [k for k, t in list(store.items()) if t.subject == token.subject and t.client_id == token.client_id]:
                 store.pop(key, None)
