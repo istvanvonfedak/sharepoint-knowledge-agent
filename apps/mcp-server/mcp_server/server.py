@@ -5,48 +5,54 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 import uvicorn
+from mcp.server.auth.middleware.auth_context import get_access_token
+from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions, RevocationOptions
 from mcp.server.fastmcp import Context, FastMCP
 from starlette.requests import Request
-from starlette.responses import HTMLResponse, Response
+from starlette.responses import HTMLResponse, RedirectResponse, Response
 
 from sharepoint_client import auth, config, graph
+
+from .oauth_provider import EntraProxyProvider
+
+MCP_URL = f"{config.BASE_URL}/api/mcp"
+provider = EntraProxyProvider(MCP_URL)
 
 mcp = FastMCP(
     "sharepoint-knowledge-agent",
     host="127.0.0.1",
     port=config.PORT,
     streamable_http_path="/api/mcp",
+    auth_server_provider=provider,
+    auth=AuthSettings(
+        issuer_url=config.BASE_URL,
+        resource_server_url=MCP_URL,
+        validate_token_resource=True,
+        client_registration_options=ClientRegistrationOptions(enabled=True),
+        revocation_options=RevocationOptions(enabled=True),
+    ),
 )
 
 
-def _session_id(ctx: Context) -> str:
-    request = ctx.request_context.request
-    sid = request.headers.get("mcp-session-id") if request is not None else None
-    if not sid:
-        raise RuntimeError("No MCP session")
-    return sid
+def _user_id() -> str:
+    token = get_access_token()
+    if token is None or token.subject is None:
+        raise auth.NotSignedInError()
+    return token.subject
 
 
 async def _as_user(ctx: Context, call: Callable[[str], Awaitable[Any]]) -> str:
-    """Runs `call` with the session user's Graph token and returns the result as JSON text."""
-    token = await asyncio.to_thread(auth.get_access_token, _session_id(ctx))
+    """Runs `call` with the signed-in user's Graph token and returns the result as JSON text."""
+    token = await asyncio.to_thread(auth.get_access_token, _user_id())
     return json.dumps(await call(token), indent=2)
 
 
 @mcp.tool()
-async def sharepoint_login(ctx: Context) -> str:
-    """Sign in to Microsoft Entra ID. Returns a URL the user must open in a browser."""
-    sid = _session_id(ctx)
-    if auth.is_signed_in(sid):
-        return "Already signed in."
-    url = await asyncio.to_thread(auth.start_login, sid)
-    return f"Open this URL to sign in, then retry your request:\n{url}"
-
-
-@mcp.tool()
 async def sharepoint_logout(ctx: Context) -> str:
-    """Forget the Microsoft sign-in for this session."""
-    auth.sign_out(_session_id(ctx))
+    """Forget the Microsoft sign-in; the client must re-authenticate before the next call."""
+    token = get_access_token()
+    if token is not None:
+        await provider.revoke_token(token)
     return "Signed out."
 
 
@@ -88,16 +94,11 @@ async def sharepoint_read_file(ctx: Context, drive_id: str, item_id: str, max_by
 
 @mcp.custom_route("/oauth/callback", methods=["GET"])
 async def oauth_callback(request: Request) -> Response:
-    params = request.query_params
-    if "error" in params:
-        auth.cancel_login(params.get("state", ""))
-        detail = html.escape(f"{params['error']}: {params.get('error_description', '')}")
-        return HTMLResponse(f"Sign-in failed: {detail}", 400)
     try:
-        user = await asyncio.to_thread(auth.complete_login, dict(params))
+        redirect_url = await provider.finish_authorization(dict(request.query_params))
     except Exception as e:  # surfaced to the user in the browser
         return HTMLResponse(f"Sign-in failed: {html.escape(str(e))}", 400)
-    return HTMLResponse(f"<h3>Signed in as {html.escape(user)}</h3><p>You can close this tab and return to your MCP client.</p>")
+    return RedirectResponse(redirect_url, status_code=302)
 
 
 def main() -> None:

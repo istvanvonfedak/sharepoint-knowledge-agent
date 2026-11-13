@@ -21,12 +21,12 @@ One shared `.venv` at the repo root; each package is installed editable by `requ
 4. `.venv/bin/python -m mcp_server`
 
 MCP endpoint: `http://localhost:8080/api/mcp` (streamable HTTP). Connect with e.g.
-`claude mcp add --transport http sharepoint http://localhost:8080/api/mcp`, then ask it to call `sharepoint_login`.
+`claude mcp add --transport http sharepoint http://localhost:8080/api/mcp`, then run `/mcp` in Claude Code and choose *Authenticate*: it opens the Microsoft sign-in in your browser and returns to the client automatically (MCP OAuth; the server proxies to Entra). Tokens are held in memory, so restarting the server requires authenticating again.
 
 ## Security notes
 - Binds to `127.0.0.1` only; intended for single-user local use.
-- Sign-in links are not bound to the requesting browser: only open a link from `sharepoint_login` that *you* requested.
-- Sessions are identified by the MCP session id; don't expose the port beyond localhost.
+- Clients register dynamically and are not pre-approved: any local process can register and request sign-in, which still needs you to approve it in the browser. Don't expose the port beyond localhost.
+- Tokens issued by this server are opaque, bound to the user's Entra account, and expire after 1 hour (refresh tokens: 30 days, rotated).
 
 ## Database (RAG)
 `docker compose -f infra/docker-compose.yml up -d`, then `.venv/bin/python -m sharepoint_rag.db` to apply the schema.
