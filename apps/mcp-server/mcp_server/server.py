@@ -51,8 +51,10 @@ async def _as_user(call: Callable[[str], Awaitable[Any]]) -> str:
 async def sharepoint_logout() -> str:
     """Forget the Microsoft sign-in; the client must re-authenticate before the next call."""
     token = get_access_token()
-    if token is not None:
-        await provider.revoke_token(token)
+    if token is None:
+        return "Not signed in."
+    if not await provider.sign_out(token):
+        return "Signed out this client. The Microsoft session was kept because another client is still connected."
     return "Signed out."
 
 

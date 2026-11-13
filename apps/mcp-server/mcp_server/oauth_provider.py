@@ -26,6 +26,7 @@ CODE_TTL_SECONDS = 600
 ACCESS_TTL_SECONDS = 3600
 REFRESH_TTL_SECONDS = 30 * 24 * 3600
 LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1"}
+MAX_CLIENTS = 100
 
 
 class EntraProxyProvider:
@@ -46,11 +47,19 @@ class EntraProxyProvider:
         for uri in client_info.redirect_uris or []:
             if urlparse(str(uri)).hostname not in LOOPBACK_HOSTS:
                 raise RegistrationError("invalid_redirect_uri", "Only loopback redirect URIs are allowed")
+        self._purge()
+        if len(self._clients) >= MAX_CLIENTS:  # make room by dropping clients that never finished signing in
+            active = {t.client_id for store in (self._access, self._refresh) for t in store.values()}
+            for client_id in [c for c in list(self._clients) if c not in active]:
+                self._clients.pop(client_id, None)
+        if len(self._clients) >= MAX_CLIENTS:
+            raise RegistrationError("invalid_client_metadata", "Too many registered clients")
         self._clients[client_info.client_id] = client_info
 
     async def authorize(self, client: OAuthClientInformationFull, params: AuthorizationParams) -> str:
         if params.resource is not None and params.resource.rstrip("/") != self._resource:
             raise AuthorizeError("invalid_request", "Unknown resource")
+        self._purge()
         # Entra's `state` keys the client's redirect_uri/PKCE/state until /oauth/callback brings the user back.
         return await asyncio.to_thread(auth.start_login, (client.client_id, params))
 
@@ -129,16 +138,30 @@ class EntraProxyProvider:
         return access
 
     async def revoke_token(self, token: AccessToken | RefreshToken) -> None:
-        """Revokes the user's tokens for this client and drops their Entra sign-in."""
+        await self.sign_out(token)
+
+    async def sign_out(self, token: AccessToken | RefreshToken) -> bool:
+        """Revokes the user's tokens for this client. Returns True if the user's Entra sign-in was dropped too,
+        which only happens once no other client holds tokens for them."""
         for store in (self._access, self._refresh):
             for key in [k for k, t in list(store.items()) if t.subject == token.subject and t.client_id == token.client_id]:
                 store.pop(key, None)
         still_used = any(t.subject == token.subject for store in (self._access, self._refresh) for t in store.values())
-        if token.subject is not None and not still_used:
-            auth.sign_out(token.subject)  # another client may still hold tokens for this user
+        if token.subject is None or still_used:
+            return False
+        auth.sign_out(token.subject)
+        return True
+
+    def _purge(self) -> None:
+        """Drops expired codes and tokens."""
+        now = time.time()
+        for store in (self._codes, self._access, self._refresh):
+            for key in [k for k, v in list(store.items()) if v.expires_at is not None and v.expires_at < now]:
+                store.pop(key, None)
 
     def _issue(self, client_id: str | None, scopes: list[str], subject: str | None) -> OAuthToken:
         assert client_id is not None
+        self._purge()
         now = int(time.time())
         access, refresh = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
         self._access[access] = AccessToken(

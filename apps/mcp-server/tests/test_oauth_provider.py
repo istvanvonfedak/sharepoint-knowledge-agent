@@ -141,3 +141,59 @@ async def test_revoke_keeps_entra_session_while_another_client_holds_tokens(prov
     )
     await provider.revoke_token(await provider.load_access_token(a.access_token))
     assert auth.signed_out == []
+
+
+async def test_sign_out_reports_whether_entra_session_was_dropped(provider, client):
+    other = OAuthClientInformationFull(client_id="c2", redirect_uris=[REDIRECT], token_endpoint_auth_method="none")
+    await provider.register_client(other)
+    a = await provider.exchange_authorization_code(
+        client, await provider.load_authorization_code(client, await sign_in(provider, client))
+    )
+    b = await provider.exchange_authorization_code(
+        other, await provider.load_authorization_code(other, await sign_in(provider, other))
+    )
+    assert await provider.sign_out(await provider.load_access_token(a.access_token)) is False
+    assert await provider.sign_out(await provider.load_access_token(b.access_token)) is True
+
+
+async def test_expired_entries_are_purged_without_being_looked_up(provider, client):
+    auth_code = await provider.load_authorization_code(client, await sign_in(provider, client))
+    token = await provider.exchange_authorization_code(client, auth_code)
+    await sign_in(provider, client)  # leaves an unredeemed code behind
+    past = time.time() - 1
+    for store in (provider._codes, provider._access, provider._refresh):
+        for entry in store.values():
+            entry.expires_at = past
+    await provider.authorize(client, params())  # any flow step sweeps expired entries
+    assert not provider._codes and not provider._access and not provider._refresh
+
+
+def _new_client(i):
+    return OAuthClientInformationFull(client_id=f"c{i}", redirect_uris=[REDIRECT], token_endpoint_auth_method="none")
+
+
+async def _sign_in_client(provider, client):
+    code = await provider.load_authorization_code(client, await sign_in(provider, client))
+    await provider.exchange_authorization_code(client, code)
+
+
+async def test_registration_at_cap_evicts_clients_that_never_signed_in(provider, monkeypatch):
+    monkeypatch.setattr("mcp_server.oauth_provider.MAX_CLIENTS", 3)
+    clients = [_new_client(i) for i in range(3)]
+    for c in clients:
+        await provider.register_client(c)
+    await _sign_in_client(provider, clients[0])
+
+    await provider.register_client(_new_client(3))
+    assert await provider.get_client("c0") and await provider.get_client("c3")
+    assert await provider.get_client("c1") is None and await provider.get_client("c2") is None
+
+
+async def test_registration_is_rejected_when_every_client_is_active(provider, monkeypatch):
+    monkeypatch.setattr("mcp_server.oauth_provider.MAX_CLIENTS", 2)
+    for i in range(2):
+        c = _new_client(i)
+        await provider.register_client(c)
+        await _sign_in_client(provider, c)
+    with pytest.raises(RegistrationError):
+        await provider.register_client(_new_client(2))
