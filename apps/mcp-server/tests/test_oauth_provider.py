@@ -2,7 +2,7 @@ import time
 from urllib.parse import parse_qs, urlparse
 
 import pytest
-from mcp.server.auth.provider import AuthorizationParams, AuthorizeError, TokenError
+from mcp.server.auth.provider import AuthorizationParams, AuthorizeError, RegistrationError, TokenError
 from mcp.shared.auth import OAuthClientInformationFull
 
 from mcp_server.oauth_provider import EntraProxyProvider
@@ -105,3 +105,39 @@ async def test_revoke_drops_tokens_and_entra_session(provider, client):
     assert await provider.load_access_token(token.access_token) is None
     assert await provider.load_refresh_token(client, token.refresh_token) is None
     assert auth.signed_out == ["user-1"]
+
+
+async def test_non_loopback_redirect_uri_is_rejected(provider):
+    evil = OAuthClientInformationFull(
+        client_id="evil", redirect_uris=["https://attacker.example/cb"], token_endpoint_auth_method="none"
+    )
+    with pytest.raises(RegistrationError):
+        await provider.register_client(evil)
+
+
+async def test_tokens_are_rejected_once_entra_session_is_gone(provider, client):
+    from sharepoint_client import auth
+
+    auth_code = await provider.load_authorization_code(client, await sign_in(provider, client))
+    token = await provider.exchange_authorization_code(client, auth_code)
+    auth.live_users.discard("user-1")
+    try:
+        assert await provider.load_access_token(token.access_token) is None
+        assert await provider.load_refresh_token(client, token.refresh_token) is None
+    finally:
+        auth.live_users.add("user-1")
+
+
+async def test_revoke_keeps_entra_session_while_another_client_holds_tokens(provider, client):
+    from sharepoint_client import auth
+
+    other = OAuthClientInformationFull(client_id="c2", redirect_uris=[REDIRECT], token_endpoint_auth_method="none")
+    await provider.register_client(other)
+    a = await provider.exchange_authorization_code(
+        client, await provider.load_authorization_code(client, await sign_in(provider, client))
+    )
+    await provider.exchange_authorization_code(
+        other, await provider.load_authorization_code(other, await sign_in(provider, other))
+    )
+    await provider.revoke_token(await provider.load_access_token(a.access_token))
+    assert auth.signed_out == []

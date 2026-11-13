@@ -7,7 +7,7 @@ from typing import Any
 import uvicorn
 from mcp.server.auth.middleware.auth_context import get_access_token
 from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions, RevocationOptions
-from mcp.server.fastmcp import Context, FastMCP
+from mcp.server.fastmcp import FastMCP
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 
@@ -41,14 +41,14 @@ def _user_id() -> str:
     return token.subject
 
 
-async def _as_user(ctx: Context, call: Callable[[str], Awaitable[Any]]) -> str:
+async def _as_user(call: Callable[[str], Awaitable[Any]]) -> str:
     """Runs `call` with the signed-in user's Graph token and returns the result as JSON text."""
     token = await asyncio.to_thread(auth.get_access_token, _user_id())
     return json.dumps(await call(token), indent=2)
 
 
 @mcp.tool()
-async def sharepoint_logout(ctx: Context) -> str:
+async def sharepoint_logout() -> str:
     """Forget the Microsoft sign-in; the client must re-authenticate before the next call."""
     token = get_access_token()
     if token is not None:
@@ -57,39 +57,39 @@ async def sharepoint_logout(ctx: Context) -> str:
 
 
 @mcp.tool()
-async def sharepoint_whoami(ctx: Context) -> str:
+async def sharepoint_whoami() -> str:
     """Show the signed-in Microsoft user for this session."""
-    return await _as_user(ctx, graph.me)
+    return await _as_user(graph.me)
 
 
 @mcp.tool()
-async def sharepoint_search(ctx: Context, query: str, limit: int = 10) -> str:
+async def sharepoint_search(query: str, limit: int = 10) -> str:
     """Full-text search across SharePoint/OneDrive files and list items the user can access."""
-    return await _as_user(ctx, lambda t: graph.search_content(t, query, max(1, min(limit, 25))))
+    return await _as_user(lambda t: graph.search_content(t, query, max(1, min(limit, 25))))
 
 
 @mcp.tool()
-async def sharepoint_find_sites(ctx: Context, query: str = "*") -> str:
+async def sharepoint_find_sites(query: str = "*") -> str:
     """Find SharePoint sites by keyword."""
-    return await _as_user(ctx, lambda t: graph.find_sites(t, query))
+    return await _as_user(lambda t: graph.find_sites(t, query))
 
 
 @mcp.tool()
-async def sharepoint_list_drives(ctx: Context, site_id: str) -> str:
+async def sharepoint_list_drives(site_id: str) -> str:
     """List document libraries in a site."""
-    return await _as_user(ctx, lambda t: graph.list_drives(t, site_id))
+    return await _as_user(lambda t: graph.list_drives(t, site_id))
 
 
 @mcp.tool()
-async def sharepoint_list_items(ctx: Context, drive_id: str, item_id: str | None = None) -> str:
+async def sharepoint_list_items(drive_id: str, item_id: str | None = None) -> str:
     """List files/folders in a document library, optionally within a folder."""
-    return await _as_user(ctx, lambda t: graph.list_children(t, drive_id, item_id))
+    return await _as_user(lambda t: graph.list_children(t, drive_id, item_id))
 
 
 @mcp.tool()
-async def sharepoint_read_file(ctx: Context, drive_id: str, item_id: str, max_bytes: int = 100_000) -> str:
+async def sharepoint_read_file(drive_id: str, item_id: str, max_bytes: int = 100_000) -> str:
     """Read a text-based file (txt, md, csv, json, html, ...) by drive_id and item_id."""
-    return await _as_user(ctx, lambda t: graph.read_file_text(t, drive_id, item_id, max(1, min(max_bytes, 1_000_000))))
+    return await _as_user(lambda t: graph.read_file_text(t, drive_id, item_id, max(1, min(max_bytes, 1_000_000))))
 
 
 @mcp.custom_route("/oauth/callback", methods=["GET"])

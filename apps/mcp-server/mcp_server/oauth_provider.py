@@ -6,6 +6,7 @@ Entra app, and get back opaque tokens issued by this server. State is in memory:
 import asyncio
 import secrets
 import time
+from urllib.parse import urlparse
 
 from mcp.server.auth.provider import (
     AccessToken,
@@ -13,6 +14,7 @@ from mcp.server.auth.provider import (
     AuthorizationParams,
     AuthorizeError,
     RefreshToken,
+    RegistrationError,
     TokenError,
     construct_redirect_uri,
 )
@@ -23,6 +25,7 @@ from sharepoint_client import auth
 CODE_TTL_SECONDS = 600
 ACCESS_TTL_SECONDS = 3600
 REFRESH_TTL_SECONDS = 30 * 24 * 3600
+LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1"}
 
 
 class EntraProxyProvider:
@@ -39,6 +42,10 @@ class EntraProxyProvider:
     async def register_client(self, client_info: OAuthClientInformationFull) -> None:
         if client_info.client_id is None:
             raise ValueError("client_id is required")
+        # Open registration plus a hostile redirect_uri would hand a victim's auth code to an attacker.
+        for uri in client_info.redirect_uris or []:
+            if urlparse(str(uri)).hostname not in LOOPBACK_HOSTS:
+                raise RegistrationError("invalid_redirect_uri", "Only loopback redirect URIs are allowed")
         self._clients[client_info.client_id] = client_info
 
     async def authorize(self, client: OAuthClientInformationFull, params: AuthorizationParams) -> str:
@@ -100,6 +107,8 @@ class EntraProxyProvider:
         if token.expires_at is not None and token.expires_at < time.time():
             self._refresh.pop(refresh_token, None)
             return None
+        if token.subject is None or not auth.is_signed_in(token.subject):
+            return None  # Entra session is gone; the client must run the full sign-in again
         return token
 
     async def exchange_refresh_token(
@@ -115,6 +124,8 @@ class EntraProxyProvider:
         if access.expires_at is not None and access.expires_at < time.time():
             self._access.pop(token, None)
             return None
+        if access.subject is None or not auth.is_signed_in(access.subject):
+            return None  # 401 makes the client restart OAuth instead of failing every tool call
         return access
 
     async def revoke_token(self, token: AccessToken | RefreshToken) -> None:
@@ -122,8 +133,9 @@ class EntraProxyProvider:
         for store in (self._access, self._refresh):
             for key in [k for k, t in list(store.items()) if t.subject == token.subject and t.client_id == token.client_id]:
                 store.pop(key, None)
-        if token.subject is not None and not any(t.subject == token.subject for t in self._access.values()):
-            auth.sign_out(token.subject)
+        still_used = any(t.subject == token.subject for store in (self._access, self._refresh) for t in store.values())
+        if token.subject is not None and not still_used:
+            auth.sign_out(token.subject)  # another client may still hold tokens for this user
 
     def _issue(self, client_id: str | None, scopes: list[str], subject: str | None) -> OAuthToken:
         assert client_id is not None

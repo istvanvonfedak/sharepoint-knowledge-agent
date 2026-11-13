@@ -23,4 +23,6 @@ def complete_login(query):
 
 fake.start_login, fake.cancel_login, fake.complete_login = start_login, cancel_login, complete_login
 fake.sign_out = fake.signed_out.append
+fake.live_users = {"user-1"}
+fake.is_signed_in = lambda user_id: user_id in fake.live_users
 sys.modules["sharepoint_client.auth"] = fake

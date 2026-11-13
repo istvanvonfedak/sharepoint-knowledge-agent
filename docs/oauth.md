@@ -39,4 +39,6 @@ Then run `/mcp` in Claude Code and choose *Authenticate*. The Entra app registra
 
 - State is in memory. Restarting the server drops all clients and tokens, so users must authenticate again.
 - Access tokens last 1 hour; refresh tokens last 30 days and rotate on use.
-- Intended for single-user local use: bound to `127.0.0.1`, and any local process can register as a client (it still needs the user to approve the sign-in in the browser).
+- Intended for single-user local use: bound to `127.0.0.1`. Client registration is open but only loopback redirect URIs (`localhost`, `127.0.0.1`, `::1`) are accepted, so a code can't be sent to a remote host.
+- If the user's Entra session is lost (e.g. its refresh token expires), the server rejects the client's tokens with a 401 so the client restarts the sign-in.
+- Logging out drops the Entra session only once no client holds tokens for that user.

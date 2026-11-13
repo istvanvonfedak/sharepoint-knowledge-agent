@@ -25,7 +25,7 @@ MCP endpoint: `http://localhost:8080/api/mcp` (streamable HTTP). Connect with e.
 
 ## Security notes
 - Binds to `127.0.0.1` only; intended for single-user local use.
-- Clients register dynamically and are not pre-approved: any local process can register and request sign-in, which still needs you to approve it in the browser. Don't expose the port beyond localhost.
+- Clients register dynamically, but only loopback redirect URIs are accepted. Don't expose the port beyond localhost.
 - Tokens issued by this server are opaque, bound to the user's Entra account, and expire after 1 hour (refresh tokens: 30 days, rotated).
 
 ## Database (RAG)

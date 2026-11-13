@@ -79,6 +79,10 @@ def complete_login(query: dict[str, str]) -> tuple[Any, str, str]:
     return context, account["home_account_id"], account["username"]
 
 
+def is_signed_in(user_id: str) -> bool:
+    return user_id in _accounts
+
+
 def sign_out(user_id: str) -> None:
     account = _accounts.pop(user_id, None)
     if account is not None:
