@@ -1,4 +1,17 @@
 services:
+  mcp-server:
+    build:
+      context: ..
+      dockerfile: apps/mcp-server/Dockerfile
+    env_file: ../.env
+    environment:
+      # Must match the redirect URI registered in Entra (http://localhost:8080/oauth/callback).
+      PORT: "8080"
+      MCP_BIND_HOST: 0.0.0.0
+    ports:
+      # Loopback only: the server is single-user and its client registration is open.
+      - "127.0.0.1:8080:8080"
+
   db:
     image: pgvector/pgvector:pg17
     environment:

@@ -13,6 +13,8 @@ def _required(name: str) -> str:
 
 
 PORT = int(os.environ.get("PORT", "8080"))
+# Loopback unless overridden; the Docker image sets 0.0.0.0 and publishes the port on 127.0.0.1 only.
+BIND_HOST = os.environ.get("MCP_BIND_HOST", "127.0.0.1")
 BASE_URL = f"http://localhost:{PORT}"
 REDIRECT_URI = f"{BASE_URL}/oauth/callback"
 TENANT_ID = _required("AZURE_TENANT_ID")

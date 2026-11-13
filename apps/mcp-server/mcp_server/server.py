@@ -106,7 +106,7 @@ async def oauth_callback(request: Request) -> Response:
 def main() -> None:
     print(f"MCP server:     {config.BASE_URL}/api/mcp")
     print(f"OAuth callback: {config.REDIRECT_URI}")
-    uvicorn.run(mcp.streamable_http_app(), host="127.0.0.1", port=config.PORT)
+    uvicorn.run(mcp.streamable_http_app(), host=config.BIND_HOST, port=config.PORT)
 
 
 if __name__ == "__main__":
