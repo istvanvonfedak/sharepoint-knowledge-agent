@@ -53,8 +53,9 @@ def _docx_text(data: bytes) -> str:
 
 
 async def _get(token: str, path: str, **kwargs) -> httpx.Response:
+    headers = {"Authorization": f"Bearer {token}", **kwargs.pop("headers", {})}
     async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-        res = await client.get(path if path.startswith("http") else f"{GRAPH}{path}", headers={"Authorization": f"Bearer {token}"}, **kwargs)
+        res = await client.get(path if path.startswith("http") else f"{GRAPH}{path}", headers=headers, **kwargs)
     if res.is_error:
         raise RuntimeError(f"Graph {res.status_code}: {res.text}")
     return res
