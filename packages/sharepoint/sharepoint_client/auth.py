@@ -73,11 +73,9 @@ def complete_login(query: dict[str, str]) -> tuple[Any, str, str]:
         raise ValueError(result.get("error_description", "Token exchange failed"))
     claims = result.get("id_token_claims", {})
     home_account_id = f"{claims.get('oid')}.{claims.get('tid')}"
-    username = claims.get("preferred_username")
-    accounts = _app.get_accounts()
-    account = next((a for a in accounts if a["home_account_id"] == home_account_id), None) or next(
-        (a for a in accounts if a["username"] == username), None
-    )
+    # Match only on the immutable object id + tenant id. A username is mutable and not unique across tenants,
+    # so falling back to it could bind another user's cached account to this sign-in.
+    account = next((a for a in _app.get_accounts() if a["home_account_id"] == home_account_id), None)
     if account is None:
         raise ValueError("Signed in, but the account was not found in the token cache")
     _accounts[account["home_account_id"]] = account

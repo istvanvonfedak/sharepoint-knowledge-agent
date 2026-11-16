@@ -16,7 +16,8 @@ services:
     image: pgvector/pgvector:pg17
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      # No default: set it in the root .env and start with `--env-file .env`.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: sharepoint_rag
     ports:
       - "127.0.0.1:5432:5432"

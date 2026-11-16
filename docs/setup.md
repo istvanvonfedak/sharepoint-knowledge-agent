@@ -23,10 +23,10 @@ Fill in `AZURE_TENANT_ID`, `AZURE_CLIENT_ID` and `AZURE_CLIENT_SECRET` in `.env`
 ## 3. Start the dev server
 
 ```
-docker compose -f infra/docker-compose.yml up -d --build mcp-server
+docker compose --env-file .env -f infra/docker-compose.yml up -d --build mcp-server
 ```
 
-The MCP endpoint is `http://localhost:8080/api/mcp` (streamable HTTP). The port is published on `127.0.0.1` only, and the container always uses port 8080, so keep the redirect URI as is. Logs: `docker compose -f infra/docker-compose.yml logs -f mcp-server`. Stop with `docker compose -f infra/docker-compose.yml stop mcp-server`.
+The MCP endpoint is `http://localhost:8080/api/mcp` (streamable HTTP). The port is published on `127.0.0.1` only, and the container always uses port 8080, so keep the redirect URI as is. Logs: `docker compose --env-file .env -f infra/docker-compose.yml logs -f mcp-server`. Stop with `docker compose --env-file .env -f infra/docker-compose.yml stop mcp-server`.
 
 <details>
 <summary>Without Docker</summary>

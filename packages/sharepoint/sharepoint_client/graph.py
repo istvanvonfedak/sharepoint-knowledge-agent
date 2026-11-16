@@ -65,14 +65,16 @@ MAX_PAGES = 10
 
 
 async def _get_all(token: str, path: str, **kwargs) -> list[dict]:
-    """Follows @odata.nextLink, capped at MAX_PAGES pages."""
+    """Follows @odata.nextLink, capped at MAX_PAGES pages. If more pages exist, a final
+    {"truncated": True, "message": ...} entry says so, so callers never mistake a partial list for a full one."""
     items: list[dict] = []
     for _ in range(MAX_PAGES):
         body = (await _get(token, path, **kwargs)).json()
         items += body["value"]
         path, kwargs = body.get("@odata.nextLink"), {}
         if not path:
-            break
+            return items
+    items.append({"truncated": True, "message": f"Showing the first {len(items)} results; more exist. Narrow the query or list a subfolder."})
     return items
 
 

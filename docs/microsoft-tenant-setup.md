@@ -85,7 +85,7 @@ AZURE_CLIENT_SECRET=<secret Value>
 Start the server:
 
 ```
-docker compose -f infra/docker-compose.yml up -d --build mcp-server
+docker compose --env-file .env -f infra/docker-compose.yml up -d --build mcp-server
 ```
 
 It listens on `http://localhost:8080/api/mcp`, published on `127.0.0.1` only. Check that it's up:
@@ -94,7 +94,7 @@ It listens on `http://localhost:8080/api/mcp`, published on `127.0.0.1` only. Ch
 curl -i -X POST http://localhost:8080/api/mcp
 ```
 
-A `401` response is correct: the server is running and asking for authentication. If it doesn't respond, check `docker compose -f infra/docker-compose.yml logs mcp-server`.
+A `401` response is correct: the server is running and asking for authentication. If it doesn't respond, check `docker compose --env-file .env -f infra/docker-compose.yml logs mcp-server`.
 
 Prefer not to use Docker? See the *Without Docker* note in the [setup guide](setup.md).
 
@@ -137,7 +137,7 @@ Ask Claude Code these, one at a time:
 
 ## Clean up
 
-Stop the server with `docker compose -f infra/docker-compose.yml down`. Cancel the Microsoft 365 trial under **Billing** → **Your products** before it ends, and delete the client secret if you won't keep using it.
+Stop the server with `docker compose --env-file .env -f infra/docker-compose.yml down`. Cancel the Microsoft 365 trial under **Billing** → **Your products** before it ends, and delete the client secret if you won't keep using it.
 
 ## Next
 

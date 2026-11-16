@@ -31,8 +31,8 @@ KEY_FACTS = {
     "security-incident.md": ["security@example.com", "within 1 hour", "P1", "blameless"],
     "it-helpdesk.md": ["error 809", "UDP ports 500 and 4500", "180 days"],
     "engineering-oncall.md": ["every Monday", "15 minutes", "stipend"],
-    "politica-ferias-portugal.md": ["25 dias úteis", "subsídio de férias", "15 dias"],
-    "guia-teletrabalho.md": ["40 euros", "eletricidade", "portátil"],
+    "politica-vacaciones-espana.md": ["30 días naturales", "prima de vacaciones", "15 días"],
+    "guia-teletrabajo.md": ["40 euros", "electricidad", "portátil"],
     "salaries-2025.md": ["62,000 to 78,000", "L6", "15 percent"],
     "board-minutes.md": ["Project Falcon", "18 to 24 million", "due-diligence"],
 }

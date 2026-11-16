@@ -11,6 +11,13 @@ AUTH_PATH = Path(__file__).parents[1] / "sharepoint_client" / "auth.py"
 class FakeApp:
     def __init__(self, *args, **kwargs):
         self.silent_result = None
+        self.accounts = []
+
+    def get_accounts(self):
+        return self.accounts
+
+    def acquire_token_by_auth_code_flow(self, flow, query):
+        return {"access_token": "t", "id_token_claims": {"oid": "oid1", "tid": "tid1", "preferred_username": "u@example.com"}}
 
     def acquire_token_silent(self, scopes, account):
         return self.silent_result
@@ -54,3 +61,18 @@ def test_pending_sign_ins_are_capped(real_auth, monkeypatch):
     for i in range(10):
         real_auth.start_login(i)
     assert list(real_auth._pending) == ["s7", "s8", "s9"]  # oldest are dropped first
+
+
+def test_login_binds_the_account_matching_oid_and_tid(real_auth):
+    real_auth._app.accounts = [{"home_account_id": "oid1.tid1", "username": "u@example.com"}]
+    real_auth._pending["s"] = ("ctx", {}, 10**12)
+    assert real_auth.complete_login({"state": "s"}) == ("ctx", "oid1.tid1", "u@example.com")
+
+
+def test_login_never_falls_back_to_a_matching_username(real_auth):
+    # Same username, different object id: another user's cached account must not be adopted.
+    real_auth._app.accounts = [{"home_account_id": "other.tid1", "username": "u@example.com"}]
+    real_auth._pending["s"] = ("ctx", {}, 10**12)
+    with pytest.raises(ValueError):
+        real_auth.complete_login({"state": "s"})
+    assert not real_auth.is_signed_in("other.tid1")

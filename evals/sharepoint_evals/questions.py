@@ -22,9 +22,9 @@ QUESTIONS = [
     Q("VPN error 809", "it-helpdesk.md", "keyword"),
     Q("P1 severity response time", "security-incident.md", "keyword"),
     # Question language differs from document language
-    Q("How many vacation days do employees in Portugal get?", "politica-ferias-portugal.md", "cross-lingual"),
-    Q("Is there a monthly allowance for working from home?", "guia-teletrabalho.md", "cross-lingual"),
-    Q("Como devo reportar um email de phishing?", "security-incident.md", "cross-lingual"),
+    Q("How many vacation days do employees in Spain get?", "politica-vacaciones-espana.md", "cross-lingual"),
+    Q("Is there a monthly allowance for working from home?", "guia-teletrabajo.md", "cross-lingual"),
+    Q("¿Cómo debo reportar un correo de phishing?", "security-incident.md", "cross-lingual"),
     # Restricted docs: only retrievable for personas with access
     Q("What is the base salary band for level L5?", "salaries-2025.md", "restricted", persona="hr"),
     Q("Which company are we planning to acquire?", "board-minutes.md", "restricted", persona="exec"),

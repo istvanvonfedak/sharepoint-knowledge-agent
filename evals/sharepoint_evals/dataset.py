@@ -21,8 +21,8 @@ DOCS = [
     Doc("security-incident.md", (EVERYONE,)),
     Doc("it-helpdesk.md", (EVERYONE,)),
     Doc("engineering-oncall.md", (EVERYONE,)),
-    Doc("politica-ferias-portugal.md", (EVERYONE,)),
-    Doc("guia-teletrabalho.md", (EVERYONE,)),
+    Doc("politica-vacaciones-espana.md", (EVERYONE,)),
+    Doc("guia-teletrabajo.md", (EVERYONE,)),
     Doc("salaries-2025.md", ("group:hr",)),
     Doc("board-minutes.md", ("group:execs",)),
 ]

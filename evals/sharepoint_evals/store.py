@@ -18,7 +18,7 @@ from sharepoint_evals.dataset import DOCS
 def eval_database_url() -> str:
     if url := os.environ.get("EVAL_DATABASE_URL"):
         return url
-    return make_conninfo(config.DATABASE_URL, dbname="sharepoint_rag_eval")
+    return make_conninfo(config.require_database_url(), dbname="sharepoint_rag_eval")
 
 
 def _index_hash() -> str:

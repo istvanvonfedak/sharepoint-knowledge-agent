@@ -8,7 +8,13 @@ load_dotenv()
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "gemini-embedding-001")
 EMBEDDING_DIMENSIONS = int(os.environ.get("EMBEDDING_DIMENSIONS", "1536"))
-DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/sharepoint_rag")
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
+
+
+def require_database_url() -> str:
+    if not DATABASE_URL:
+        raise RuntimeError("DATABASE_URL is not set. See .env.example (postgresql://postgres:<POSTGRES_PASSWORD>@localhost:5432/sharepoint_rag)")
+    return DATABASE_URL
 
 
 def require_gemini_key() -> str:

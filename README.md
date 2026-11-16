@@ -2,6 +2,7 @@
 SharePoint Q&A agent with a built-in MCP server. Entra ID delegated auth means users only get answers from content they already have access to.
 
 ## Docs
+- [Architecture](docs/architecture.md): target design (mcp-server with an agent tool, sync-worker, inference-server, Postgres index, permission model) and what is built so far.
 - [Setup](docs/setup.md): configure Entra ID, run the MCP server (Docker or local) and connect a client.
 - [Microsoft tenant setup](docs/microsoft-tenant-setup.md): step-by-step walkthrough from a new Azure/Microsoft 365 tenant and Entra app registration to a validated working server.
 - [MCP OAuth sign-in](docs/oauth.md): how the sign-in flow works, and its limits.
@@ -22,7 +23,7 @@ One shared `.venv` at the repo root; each package is installed editable by `requ
 - Tokens issued by this server are opaque, bound to the user's Entra account, and expire after 1 hour (refresh tokens: 30 days, rotated).
 
 ## Database (RAG)
-`docker compose -f infra/docker-compose.yml up -d db`, then `.venv/bin/python -m sharepoint_rag.db` to apply the schema.
+`docker compose --env-file .env -f infra/docker-compose.yml up -d db`, then `.venv/bin/python -m sharepoint_rag.db` to apply the schema.
 Embeddings use the Gemini API: set `GEMINI_API_KEY` (https://aistudio.google.com/apikey).
 
 ## Indexer permissions (needed for the RAG crawler)
