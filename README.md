@@ -7,17 +7,39 @@ SharePoint Q&A agent with a built-in MCP server. Entra ID delegated auth means u
 - [Microsoft tenant setup](docs/microsoft-tenant-setup.md): step-by-step walkthrough from a new Azure/Microsoft 365 tenant and Entra app registration to a validated working server.
 - [MCP OAuth sign-in](docs/oauth.md): how the sign-in flow works, and its limits.
 
-## Layout
+## Infrastructure
+```mermaid
+flowchart LR
+    CLIENT["MCP clients<br/>Claude, Cursor, ..."]
+
+    subgraph HOST["Docker host (infra/docker-compose.yml)"]
+        MCP["mcp-server<br/>apps/mcp-server<br/>127.0.0.1:8080"]
+        SW["sync-worker × N<br/>apps/sync-worker"]
+        INF["inference-server<br/>apps/inference-server"]
+        PG[("Postgres + pgvector<br/>index, permissions,<br/>job queue, sessions")]
+    end
+
+    subgraph MS["Microsoft 365 tenant"]
+        ENTRA["Entra ID<br/>two app registrations"]
+        GRAPH["Microsoft Graph<br/>SharePoint"]
+    end
+
+    GEMINI["Google Gemini API"]
+
+    CLIENT -->|"MCP over HTTP + OAuth"| MCP
+    MCP -->|"delegated sign-in"| ENTRA
+    MCP -->|"user's token: live reads,<br/>access re-checks"| GRAPH
+    MCP --> PG
+    MCP -->|"/embed"| INF
+    MCP -->|"sharepoint_ask agent"| GEMINI
+
+    SW -->|"app-only token (certificate)"| GRAPH
+    SW --> PG
+    SW -->|"/embed"| INF
+    INF -->|"embeddings"| GEMINI
 ```
-apps/mcp-server/        MCP server, OAuth, tools and the sharepoint_ask agent (python -m mcp_server)
-apps/sync-worker/       Crawls SharePoint into the index, keeps permissions current (python -m sync_worker)
-apps/inference-server/  /embed over Gemini (python -m inference_server)
-packages/sharepoint/    Delegated Entra ID sign-in + Microsoft Graph client as the user (sharepoint_client)
-packages/rag/           Schema, index generations, job queue, extraction, search (sharepoint_rag)
-evals/                  Inspect AI regression + capability evals (see evals/README.md)
-infra/                  docker-compose.yml (all services + Postgres/pgvector)
-tests/                  Fixtures and helpers shared by every test suite (loaded by pytest.ini)
-```
+Shared code lives in `packages/sharepoint/` (Entra sign-in + Graph client) and `packages/rag/` (schema, job queue, extraction, search). Evals are in `evals/`, shared test fixtures in `tests/`. Postgres is only on the `backend` compose network and is published to the host on loopback only; see [Architecture](docs/architecture.md) for the full design.
+
 One shared `.venv` at the repo root; each package is installed editable by `requirements.txt`. Config comes from the root `.env` (shared), `.env.mcp` (the mcp-server's Entra app) and `.env.worker` (the sync-worker's separate Entra app).
 
 Tests: `.venv/bin/python -m pytest`. Database tests need a Postgres with pgvector in `TEST_DATABASE_URL` (see `tests/fixtures.py`) and are skipped without it.
