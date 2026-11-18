@@ -41,10 +41,11 @@ async def _post(client: httpx.AsyncClient, url: str, body: dict) -> dict:
     return res.json()
 
 
-async def _embed(texts: list[str], task_type: str) -> list[list[float]]:
+async def embed(texts: list[str], task_type: str, model_name: str, dimensions: int) -> list[list[float]]:
+    """`task_type` is RETRIEVAL_DOCUMENT or RETRIEVAL_QUERY."""
     if any(not t.strip() for t in texts):
         raise ValueError("Cannot embed empty text; filter blank chunks before embedding")
-    model = f"models/{config.EMBEDDING_MODEL}"
+    model = f"models/{model_name}"
     vectors: list[list[float]] = []
     async with httpx.AsyncClient(timeout=60) as client:
         for i in range(0, len(texts), BATCH_SIZE):
@@ -54,7 +55,7 @@ async def _embed(texts: list[str], task_type: str) -> list[list[float]]:
                         "model": model,
                         "content": {"parts": [{"text": t}]},
                         "taskType": task_type,
-                        "outputDimensionality": config.EMBEDDING_DIMENSIONS,
+                        "outputDimensionality": dimensions,
                     }
                     for t in texts[i : i + BATCH_SIZE]
                 ]
@@ -65,11 +66,3 @@ async def _embed(texts: list[str], task_type: str) -> list[list[float]]:
                 raise RuntimeError(f"Gemini returned {len(batch)} embeddings for {len(body['requests'])} inputs")
             vectors += [_normalize(e["values"]) for e in batch]
     return vectors
-
-
-async def embed_documents(texts: list[str]) -> list[list[float]]:
-    return await _embed(texts, "RETRIEVAL_DOCUMENT")
-
-
-async def embed_query(text: str) -> list[float]:
-    return (await _embed([text], "RETRIEVAL_QUERY"))[0]

@@ -1,16 +1,25 @@
-"""Permission-filtered retrieval over the chunk index: vector, keyword, or hybrid (RRF)."""
+"""Permission-filtered retrieval over the active index generation: vector, keyword, or hybrid (RRF),
+then checked live against SharePoint (layer 2)."""
 import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Literal
 
 import psycopg
+from psycopg import sql
+
+from . import generations
+from .generations import Generation
 
 Mode = Literal["vector", "keyword", "hybrid"]
 RRF_K = 60  # standard reciprocal-rank-fusion constant
+# Query terms are matched exactly and in English and Spanish stemmed form; chunks store both (generations._ddl).
+TS_CONFIGS = ("simple", "english", "spanish")
+MAX_TERMS = 64
+MAX_QUERY_CHARS = 2000  # callers truncate queries to this
 
 _COLUMNS = "c.id, s.id, s.name, s.web_url, c.heading_path, c.text, s.drive_id, s.item_id"
-_FROM = "FROM chunks c JOIN sources s ON s.id = c.source_id"
+_FROM = "FROM {t} c JOIN sources s ON s.id = c.source_id"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -42,10 +51,16 @@ async def search(
     k: int = 10,
     mode: Mode = "hybrid",
     candidates: int = 50,
+    generation: Generation | None = None,
 ) -> list[Hit]:
     """Top-k chunks the caller may read. `principals` = the user's id, their group ids, and any
     org-wide markers; a chunk is visible iff its `acl` overlaps them. The ACL filter is part of the
-    SQL WHERE clause, so restricted chunks never enter ranking."""
+    SQL WHERE clause, so restricted chunks never enter ranking. There is no unfiltered path: an empty
+    principal list is refused rather than treated as "no filter"."""
+    if not principals or not all(isinstance(p, str) and p for p in principals):
+        raise ValueError("principals are required")
+    gen = generation or await generations.active(conn)
+    from_ = sql.SQL(_FROM).format(t=gen.table).as_string(conn)
     ranked: dict[str, list] = {}
     if mode in ("vector", "hybrid"):
         # The HNSW index returns ~ef_search nearest neighbours *before* the ACL filter is applied, so a
@@ -54,20 +69,22 @@ async def search(
         async with conn.transaction():
             await conn.execute("SET LOCAL hnsw.iterative_scan = 'strict_order'")
             cur = await conn.execute(
-                f"SELECT {_COLUMNS} {_FROM} WHERE c.acl && %s::text[] ORDER BY c.embedding <=> %s::vector LIMIT %s",
+                f"SELECT {_COLUMNS} {from_} WHERE c.acl && %s::text[] ORDER BY c.embedding <=> %s::vector LIMIT %s",
                 (principals, query_vec, candidates),
             )
             ranked["vector"] = await cur.fetchall()
     # Match ANY term (ranked by how many match): natural-language questions rarely share every word
     # with the document, so AND semantics would return nothing. Alphanumeric tokens can't contain tsquery operators.
-    terms = re.findall(r"[^\W_]+", query_text.lower())  # letters/digits only: never tsquery operators
+    # Letters/digits only (never tsquery operators), deduplicated and capped: a huge OR across three configs
+    # exhausts Postgres memory.
+    terms = list(dict.fromkeys(re.findall(r"[^\W_]+", query_text.lower())))[:MAX_TERMS]
     if mode in ("keyword", "hybrid") and terms:
         tsquery = " | ".join(terms)
+        q = " || ".join(f"to_tsquery('{cfg}', %(q)s)" for cfg in TS_CONFIGS)
         cur = await conn.execute(
-            f"SELECT {_COLUMNS} {_FROM} WHERE c.acl && %s::text[] "
-            "AND c.tsv @@ to_tsquery('simple', %s) "
-            "ORDER BY ts_rank_cd(c.tsv, to_tsquery('simple', %s)) DESC LIMIT %s",
-            (principals, tsquery, tsquery, candidates),
+            f"SELECT {_COLUMNS} {from_} WHERE c.acl && %(p)s::text[] AND c.tsv @@ ({q}) "
+            f"ORDER BY ts_rank_cd(c.tsv, {q}) DESC LIMIT %(n)s",
+            {"p": principals, "q": tsquery, "n": candidates},
         )
         ranked["keyword"] = await cur.fetchall()
 
@@ -85,27 +102,15 @@ async def search(
 Verifier = Callable[[list[tuple[str, str]]], Awaitable[set[tuple[str, str]]]]
 
 
-async def search_verified(
-    conn: psycopg.AsyncConnection,
-    *,
-    verify: Verifier,
-    k: int = 10,
-    overfetch: int = 3,
-    **kwargs,
-) -> list[Hit]:
-    """`search` plus layer-2 enforcement: hits whose file the caller can no longer open are dropped.
-
-    The index ACL can lag behind SharePoint (revoked sharing, deleted files), so each hit's source is
-    re-verified live. We over-fetch (`k * overfetch`) so dropped hits can be replaced; if more than
-    that many are stale (e.g. one revoked document with many chunks) the result may be shorter than k,
-    never wider. A verifier error propagates:
-    no answer is better than an unverified one.
-    """
+def candidate_args(k: int, overfetch: int, kwargs: dict) -> dict:
     wanted = k * overfetch
     # The per-retriever candidate pool must be at least as large as the over-fetch window, or search()
     # silently caps it (default 50) and a stale document can exhaust the window.
-    kwargs["candidates"] = max(kwargs.get("candidates", 50), wanted)
-    hits = await search(conn, k=wanted, **kwargs)
+    return {**kwargs, "k": wanted, "candidates": max(kwargs.get("candidates", 50), wanted)}
+
+
+async def keep_verified(hits: list[Hit], verify: Verifier, k: int) -> list[Hit]:
+    """The first k hits whose file the caller can open right now (layer 2)."""
     sources = list(dict.fromkeys((h.drive_id, h.item_id) for h in hits))
     allowed = await verify(sources) if sources else set()
     return [h for h in hits if (h.drive_id, h.item_id) in allowed][:k]

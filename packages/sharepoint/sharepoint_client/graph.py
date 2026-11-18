@@ -56,6 +56,8 @@ async def _get(token: str, path: str, **kwargs) -> httpx.Response:
     headers = {"Authorization": f"Bearer {token}", **kwargs.pop("headers", {})}
     async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
         res = await client.get(path if path.startswith("http") else f"{GRAPH}{path}", headers=headers, **kwargs)
+    if res.status_code == 401:
+        raise PermissionError("Microsoft Graph rejected the user's token; sign in again")
     if res.is_error:
         raise RuntimeError(f"Graph {res.status_code}: {res.text}")
     return res
@@ -76,6 +78,28 @@ async def _get_all(token: str, path: str, **kwargs) -> list[dict]:
             return items
     items.append({"truncated": True, "message": f"Showing the first {len(items)} results; more exist. Narrow the query or list a subfolder."})
     return items
+
+
+MAX_MEMBERSHIP_PAGES = 100  # 999 per page: ~100k groups. More is refused rather than truncated.
+
+
+async def my_memberships(token: str) -> tuple[str, list[str], bool]:
+    """(user object id, ids of every group/role the user is in, nested included, is a full member).
+
+    Never partial: a truncated list would silently hide group-shared files, so any failure raises. Every
+    directory object id is kept, not only groups: with User.Read some objects come back without their type,
+    and extra ids are harmless (they only match ACL entries for that same object).
+    """
+    user = (await _get(token, "/me", params={"$select": "id,userType"})).json()
+    ids: list[str] = []
+    path, params = "/me/transitiveMemberOf", {"$select": "id", "$top": "999"}
+    for _ in range(MAX_MEMBERSHIP_PAGES):
+        body = (await _get(token, path, params=params)).json()
+        ids += [o["id"] for o in body["value"] if o.get("id")]
+        path, params = body.get("@odata.nextLink"), {}
+        if not path:
+            return user["id"], list(dict.fromkeys(ids)), user.get("userType") == "Member"
+    raise RuntimeError("Too many group memberships to evaluate search permissions")
 
 
 async def me(token: str) -> dict:
@@ -130,7 +154,8 @@ async def search_content(token: str, query: str, size: int) -> list[dict]:
 
 
 async def read_file_text(token: str, drive_id: str, item_id: str, max_bytes: int) -> dict:
-    meta = (await _get(token, f"/drives/{_seg(drive_id)}/items/{_seg(item_id)}", params={"$select": "name,size,file"})).json()
+    meta = (await _get(token, f"/drives/{_seg(drive_id)}/items/{_seg(item_id)}", params={"$select": "name,size,file,webUrl,parentReference"})).json()
+    where = {"webUrl": meta.get("webUrl"), "parentId": (meta.get("parentReference") or {}).get("id")}
     if "file" not in meta:
         raise ValueError("Item is not a file")
     mime = meta["file"].get("mimeType", "")
@@ -144,9 +169,9 @@ async def read_file_text(token: str, drive_id: str, item_id: str, max_bytes: int
             raise ValueError("Word document is too large to read (over 20 MB).")
         res = await _get(token, f"/drives/{_seg(drive_id)}/items/{_seg(item_id)}/content")
         text = re.sub(r"\n{3,}", "\n\n", _docx_text(res.content))
-        return {"name": meta["name"], "truncated": len(text) > max_bytes, "text": text[:max_bytes]}
+        return {"name": meta["name"], **where, "truncated": len(text) > max_bytes, "text": text[:max_bytes]}
     if meta.get("size", 0) == 0:
-        return {"name": meta["name"], "truncated": False, "text": ""}
+        return {"name": meta["name"], **where, "truncated": False, "text": ""}
     # Range avoids buffering huge files; Graph's content redirect honours it.
     res = await _get(
         token, f"/drives/{_seg(drive_id)}/items/{_seg(item_id)}/content", headers={"Range": f"bytes=0-{max_bytes}"}
@@ -154,6 +179,7 @@ async def read_file_text(token: str, drive_id: str, item_id: str, max_bytes: int
     data = res.content
     return {
         "name": meta["name"],
+        **where,
         "truncated": len(data) > max_bytes or meta.get("size", 0) > max_bytes,
         "text": data[:max_bytes].decode("utf-8", errors="ignore"),  # ignore: a cut multi-byte tail is dropped
     }

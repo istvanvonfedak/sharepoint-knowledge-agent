@@ -151,6 +151,8 @@ activemq-data/
 
 # Environments
 .env
+.env.mcp
+.env.worker
 .envrc
 .venv
 env/
@@ -221,3 +223,6 @@ __marimo__/
 
 # Inspect AI eval logs
 logs/
+
+# Certificates and keys (see docs/setup.md)
+secrets/

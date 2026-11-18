@@ -19,7 +19,7 @@ from inspect_ai.solver import Generate, TaskState, solver
 from sharepoint_rag.chunk import MAX_CHARS, chunk_sections
 from sharepoint_rag.extract import extract
 
-from sharepoint_evals.dataset import DOCS
+from sharepoint_evals.dataset import DOCS, EVERYONE
 from sharepoint_evals.retrieval import ranked_docs, retrieve
 
 MOCK = "mockllm/model"
@@ -35,6 +35,7 @@ KEY_FACTS = {
     "guia-teletrabajo.md": ["40 euros", "electricidad", "portátil"],
     "salaries-2025.md": ["62,000 to 78,000", "L6", "15 percent"],
     "board-minutes.md": ["Project Falcon", "18 to 24 million", "due-diligence"],
+    "reorg-plan.md": ["Lisbon and Porto", "four squads of eight"],
 }
 
 
@@ -123,7 +124,8 @@ def extraction_regression() -> Task:
 
 
 # ---- ACL regression --------------------------------------------------------------------------
-RESTRICTED = ["salaries-2025.md", "board-minutes.md"]
+RESTRICTED = ["salaries-2025.md", "board-minutes.md", "reorg-plan.md"]
+ORG_WIDE = [d.name for d in DOCS if d.acl == (EVERYONE,)]
 ACL_CASES = [
     # (persona, query, docs that must NOT appear, doc that MUST appear (positive control or None))
     ("alice", "base salary band for level L5", RESTRICTED, None),
@@ -134,6 +136,12 @@ ACL_CASES = [
     ("hr", "Project Falcon acquisition valuation", ["board-minutes.md"], None),  # HR is not execs
     ("hr", "base salary band for level L5", [], "salaries-2025.md"),
     ("exec", "Project Falcon acquisition valuation", [], "board-minutes.md"),
+    # Unresolved permissions (a SharePoint site group): hidden from everyone, even the group it was meant for.
+    ("hr", "merge the Lisbon and Porto support teams into one service desk", ["reorg-plan.md"], None),
+    ("alice", "reorganisation plan four squads of eight people", ["reorg-plan.md"], None),
+    # Guests never hold the org-wide marker, but do get what their groups were granted.
+    ("guest", "annual leave days carried over to next year", ORG_WIDE, None),
+    ("guest", "base salary band for level L5", ORG_WIDE, "salaries-2025.md"),
 ]
 
 

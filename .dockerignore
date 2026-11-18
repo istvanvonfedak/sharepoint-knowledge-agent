@@ -1,8 +1,11 @@
 .env
+.env.*
 .git
 .venv
 .pytest_cache
 **/__pycache__
 **/*.egg-info
+**/tests
 evals
 logs
+secrets/

@@ -1,25 +1,85 @@
+# Start everything:  docker compose --env-file .env -f infra/docker-compose.yml up -d --build
+#
+# ../.env holds the shared settings and is read here (--env-file) to fill in ${...}; no container gets it whole.
+# Secrets are split: the mcp-server reads ../.env.mcp (its own Entra app), the sync-worker reads ../.env.worker (a
+# separate Entra app with app-only Graph access). Neither container ever sees the other's secret.
+
+x-db-url: &db-url postgresql://postgres:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/sharepoint_rag
+x-inference-key: &inference-key ${INFERENCE_API_KEY:?Set INFERENCE_API_KEY in .env}
+
 services:
   mcp-server:
     build:
       context: ..
       dockerfile: apps/mcp-server/Dockerfile
-    env_file: ../.env
+    env_file: ../.env.mcp  # copy .env.mcp.example
     environment:
-      # Must match the redirect URI registered in Entra (http://localhost:8080/oauth/callback).
+      # Must match the redirect URI registered in Entra (PUBLIC_URL/oauth/callback, default http://localhost:8080).
       PORT: "8080"
       MCP_BIND_HOST: 0.0.0.0
+      DATABASE_URL: *db-url
+      INFERENCE_URL: http://inference-server:8000
+      INFERENCE_API_KEY: *inference-key
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-gemini-embedding-001}
+      EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-1536}
+      UNRESOLVED_ACL_POLICY: ${UNRESOLVED_ACL_POLICY:-hide}
+      # Used by sharepoint_ask (Gemini by default). With ASK_MODEL=none or another provider, set this to "" so
+      # only the inference-server holds the key: this is the most exposed service.
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    restart: unless-stopped
     ports:
-      # Loopback only: the server is single-user and its client registration is open.
+      # Loopback only: the server is plain HTTP, reachable from this machine alone.
       - "127.0.0.1:8080:8080"
+    depends_on:
+      db: {condition: service_healthy}
+      inference-server: {condition: service_started}
+    networks: [default, backend]
+
+  sync-worker:
+    build:
+      context: ..
+      dockerfile: apps/sync-worker/Dockerfile
+    env_file:
+      - path: ../.env.worker  # copy .env.worker.example; the worker refuses to start without its credentials
+        required: false
+    environment:
+      DATABASE_URL: *db-url
+      INFERENCE_URL: http://inference-server:8000
+      INFERENCE_API_KEY: *inference-key
+      # Whichever service migrates first seeds index generation 1 and its model, so both must agree.
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-gemini-embedding-001}
+      EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-1536}
+      UNRESOLVED_ACL_POLICY: ${UNRESOLVED_ACL_POLICY:-hide}
+      SYNC_AZURE_CERT_PATH: /run/secrets/sync-worker-cert
+    secrets: [sync-worker-cert]  # the app's private key + certificate, mounted read-only, never baked into the image
+    restart: unless-stopped
+    depends_on:
+      db: {condition: service_healthy}
+      inference-server: {condition: service_started}
+    networks: [default, backend]  # default: it needs Microsoft Graph
+    # More replicas: docker compose ... up -d --scale sync-worker=3 (they coordinate through Postgres).
+
+  inference-server:
+    build:
+      context: ..
+      dockerfile: apps/inference-server/Dockerfile
+    restart: unless-stopped
+    environment:
+      INFERENCE_API_KEY: *inference-key
+      # Chunk text is sent to Google's Gemini API.
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    networks: [default, backend]
 
   db:
     image: pgvector/pgvector:pg17
+    restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       # No default: set it in the root .env and start with `--env-file .env`.
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: sharepoint_rag
     ports:
+      # Loopback only, for the CLIs and evals on the host. The index holds everything the crawler can read.
       - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -27,6 +87,14 @@ services:
       test: ["CMD-SHELL", "pg_isready -U postgres -d sharepoint_rag"]
       interval: 5s
       retries: 10
+    networks: [backend]
+
+networks:
+  backend:
 
 volumes:
   pgdata:
+
+secrets:
+  sync-worker-cert:
+    file: ${SYNC_CERT_FILE:-../secrets/sync-worker.pem}  # docs/setup.md, sync-worker app step 7

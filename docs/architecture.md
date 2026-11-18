@@ -6,7 +6,7 @@ A search and Q&A service over SharePoint, exposed as an MCP server. Users only g
 
 - **Never leak.** Results only include files the asker can open. Everything else bends around this.
 - **Stay fresh.** New content shows up in minutes. Revoked access is blocked right away by a live check; group and permission *grants* can take a few minutes.
-- **Search well** across English and Spanish: keyword plus meaning-based search, then reranking.
+- **Search well** across English and Spanish: keyword plus meaning-based search, merged with reciprocal rank fusion.
 - **Run from `docker compose up`** and scale by adding replicas.
 - **Not now:** a web app, several tenants or sources, writing to SharePoint, keeping copies of the original files.
 
@@ -14,13 +14,15 @@ A search and Q&A service over SharePoint, exposed as an MCP server. Users only g
 
 | Piece | State |
 |---|---|
-| MCP server with Entra sign-in. Its `sharepoint_search` calls Graph's live search. No Postgres. | Built (`apps/mcp-server/`) |
-| Live access check for a batch of files (`verify_access`) | Built (`packages/sharepoint/`) |
-| Text extraction, chunking, Gemini embeddings, Postgres schema, permission-filtered hybrid search | Built, but no tool uses it yet (`packages/rag/`) |
-| Evals for extraction, permissions and retrieval quality | Built (`evals/`) |
-| sync-worker, inference-server, `sharepoint_ask`, multi-user hardening | Not built |
+| mcp-server: Entra sign-in with all state in Postgres, `sharepoint_search` on the index (both permission layers), `sharepoint_ask`, rate limits, audit log, configurable public URL | Built (`apps/mcp-server/`) |
+| sync-worker: job queue, `discover_sites`, `crawl_drive`, `index_item`, deletes, `sync_item_acl` + daily sweep, `backfill_generation`, shared Graph throttle, own app registration | Built (`apps/sync-worker/`) |
+| inference-server: `/embed` over hosted Gemini | Built (`apps/inference-server/`) |
+| Index: extraction, chunking, per-language keyword search, hybrid search, generations, permission writes | Built (`packages/rag/`) |
+| Live access check (`verify_access`), group lookup | Built (`packages/sharepoint/`) |
+| Evals: extraction, permissions (incl. unresolved files, guests), live check, retrieval quality | Built (`evals/`); generation swaps and out-of-order permission writes are covered by DB tests |
+| `Sites.Selected` permission spike, model choice with harder evals, agent answer-quality evals, webhooks | Not done (need a real tenant / an LLM-graded eval set) |
 
-The built search keyword side uses Postgres's `simple` text config: no stemming, so Spanish "contrato" won't match "contratos". The meaning-based side makes up for it today.
+Keyword search stores each chunk in both the `simple` form (exact identifiers) and its detected language's stemmed form (English or Spanish), so "contrato" matches "contratos".
 
 ## Overview
 
@@ -37,8 +39,8 @@ flowchart LR
         JOBS[Jobs: crawl, index,<br/>sync permissions]
     end
 
-    LLM[Claude API]
-    INF["inference-server<br/>embed + rerank"]
+    LLM[Gemini, via LangChain]
+    INF["inference-server<br/>embed"]
     PG[("Postgres + pgvector<br/>chunks, permissions,<br/>job queue, sessions")]
     ENTRA[Entra ID]
     GRAPH[Microsoft Graph]
@@ -58,9 +60,9 @@ flowchart LR
 
 | Component | Job | Scales by |
 |---|---|---|
-| **mcp-server** | Serves MCP tools, signs users in, runs searches and the agent. Target: no state of its own (it's all in Postgres). Today, sessions and accounts are in memory. | More replicas |
+| **mcp-server** | Serves MCP tools, signs users in, runs searches and the agent. No state of its own (it's all in Postgres) except MCP sessions (see [Deployment](#deployment)). | More replicas |
 | **sync-worker** | Copies SharePoint into the index and keeps permissions current. | More replicas, up to Graph's rate limits |
-| **inference-server** | Turns text into vectors and reranks results. | More replicas; a GPU if indexing is heavy |
+| **inference-server** | Turns text into vectors (Gemini). | More replicas |
 | **Postgres** | Everything else: search index, permissions, sync state, job queue, sessions, audit log. | Bigger machine |
 
 The mcp-server and sync-worker share the `sharepoint_rag` and `sharepoint_client` packages but run as separate containers.
@@ -71,25 +73,25 @@ A Python MCP server (the `mcp` SDK served by uvicorn) at `/api/mcp`. It also act
 
 | Tool | State |
 |---|---|
-| `sharepoint_search` | Today: Graph live search. Planned: our index, returning cited chunks. |
-| `sharepoint_ask` | Planned: the agent below. |
+| `sharepoint_search` | Built. Our index, returning cited chunks. `SEARCH_BACKEND=graph` switches back to Graph's live search. |
+| `sharepoint_ask` | Built: the agent below. |
 | `sharepoint_read_file`, `sharepoint_find_sites`, `sharepoint_list_drives`, `sharepoint_list_items` | Built. Always live Graph with the user's token, so they show everything the user can see, indexed or not. |
 | `sharepoint_whoami`, `sharepoint_logout` | Built. |
 
 ### The agent: `sharepoint_ask`
 
-For callers that want an answer, not raw results. The server runs its own loop on the Claude API: search, read a file, refine, search again, then answer with sources.
+For callers that want an answer, not raw results. The server runs its own loop, a LangGraph graph (a `model` node and a `tools` node): search, read a file, refine, search again, then answer with sources. The model is Gemini by default (`google_genai:gemini-3.8-flash`, with the same `GEMINI_API_KEY` as embeddings). It is created with LangChain's `init_chat_model`, so `ASK_MODEL` can name any other LangChain chat model (e.g. `anthropic:claude-opus-5-5`) once its package is installed.
 
 - **Tools it can use** (internal, read-only): `search`, `read_file`, `list_items`.
 - **Permissions:** `search` goes through both [permission layers](#permissions). `read_file` and `list_items` call Graph with the user's token, so Graph itself refuses anything the user can't open. The agent can never get more than the user could by calling the tools directly.
 - **Output:** answer text plus sources (title, link, quote). A source must be one the loop actually retrieved. "Not found" is a valid answer.
 - **Limits:** max steps, tokens and time per call, and a per-user rate limit. It sends progress updates while working and returns what it found if it runs out of budget. Counters and token usage live in Postgres, so replicas share them.
 - **Prompt injection:** documents are untrusted. A planted instruction could make the agent read other files the user can open and quote them in its answer. Mitigations: the answer is plain text, links are limited to cited sources, and the agent has no way to call out to any other URL. It still can't be made to read anything the user couldn't read.
-- **Data sent out:** text the user may read goes to the Claude API. The tool is off unless `ANTHROPIC_API_KEY` is set.
+- **Data sent out:** text the user may read goes to the model's provider (Google, by default). The tool is on whenever `GEMINI_API_KEY` is set; `ASK_MODEL=none` turns it off.
 
 ## sync-worker
 
-Keeps the index in step with SharePoint. It uses an **app token** (not a user's), so it can read everything regardless of who is signed in. It gets its **own Entra app registration and secret**, separate from the mcp-server's. Otherwise anyone who breaks into the mcp-server (the most exposed component, and the one that runs the prompt-injectable agent) could mint tenant-wide tokens. Today `get_app_token()` sits in the package shared with the mcp-server; it moves into the worker's own code, and the mcp-server image and `.env` don't get the worker's secret.
+Keeps the index in step with SharePoint. It uses an **app token** (not a user's), so it can read everything regardless of who is signed in. It gets its **own Entra app registration**, separate from the mcp-server's, and signs in with a **certificate** rather than a client secret (SharePoint's own REST API, needed to read site group members, rejects secret-based app tokens; the private key also never leaves the worker's host). Otherwise anyone who breaks into the mcp-server (the most exposed component, and the one that runs the prompt-injectable agent) could mint tenant-wide tokens. The app token lives in the worker's own code (`sync_worker.graph`); the worker reads `.env.worker` (plus the shared `.env`, which holds no Entra credentials), its image doesn't contain the mcp-server's Entra client, and the mcp-server image and `.env.mcp` don't get the worker's certificate (`secrets/sync-worker.pem`, mounted only into the worker as a Compose secret).
 
 **Open question: which app permission?** `Sites.Selected` (per-site grant) is the safest, but Microsoft's docs for [listing a file's permissions](https://learn.microsoft.com/en-us/graph/api/driveitem-list-permissions?view=graph-rest-1.0) list `Files.Read.All` as the lowest option and don't mention `Sites.Selected`. It might work, perhaps only with a write-level grant. Test this first: grant a test site `Sites.Selected` at `read`, then `write`, and fetch an item's permissions. If it fails, we fall back to tenant-wide `Files.Read.All`/`Sites.Read.All`, which would also let the worker find sites on its own.
 
@@ -106,7 +108,7 @@ Work is split into small jobs on a Postgres queue (`FOR UPDATE SKIP LOCKED`). No
 | `backfill_generation` | New generation | Fills a new index [generation](#index-generations). |
 
 Rules:
-- **Newest permissions win.** Every job that writes permissions (`index_item`, `sync_item_acl`, `backfill_generation`) notes when it read them from Graph and writes only if that is newer than `sources.acl_synced_at`. Otherwise a slow `index_item` that read permissions before a revocation could write the old, too-open list back until the next sweep.
+- **Newest permissions win.** Every job that writes permissions (`index_item`, `sync_item_acl`, `backfill_generation`) notes when it read them from Graph and writes only if that is newer than `sources.acl_synced_at`. Otherwise a slow `index_item` that read permissions before a revocation could write the old, too-open list back until the next sweep. The timestamp is the send time of the request attempt that returned the permissions (after retries), from the worker host's clock, so keep worker clocks NTP-synced. A file whose permissions can't be read at all (403, or repeated failures) is marked `unresolved` rather than left with its last known list.
 - **Rate limits.** Graph returns `429` with `Retry-After`. One shared limiter, `$batch` where possible.
 - **Expired cursor (`410`).** Re-crawl the drive. Unchanged files are skipped by etag. A re-crawl can't report files deleted in the gap, so it stamps every file it sees with a `crawl_id`. Only when that full pass has reached the last page, one transaction deletes files of the drive without the new stamp. Normal delta runs return only changed files and never delete this way, and a failed or partial re-crawl deletes nothing. Old text must not linger.
 - **Failures.** A bad file is marked `error`, retried with backoff, and shown to admins. It doesn't block the drive.
@@ -115,17 +117,9 @@ Rules:
 
 ## inference-server
 
-A separate service for the embedding model and the reranker, so model weights and GPUs stay out of the other services. Two calls: `POST /embed` (texts → vectors) and `POST /rerank` (query + passages → scores).
+A separate service for embeddings, so the Gemini API key stays out of the sync-worker. One call: `POST /embed` (texts → vectors).
 
-It can use a hosted API (Gemini today) or a self-hosted model (e.g. Hugging Face TEI), chosen by config.
-
-| | Hosted | Self-hosted |
-|---|---|---|
-| Setup | An API key | A container, maybe a GPU |
-| Privacy | **Chunk text leaves our infrastructure** | Stays inside |
-| Cost | Per token | Fixed |
-
-For HR, finance and legal content, privacy likely decides it, so self-hosting must work. Hosted stays the easy default for local use. Models (multilingual embedder and reranker, e.g. bge-m3 and bge-reranker-v2-m3) will be chosen with the evals.
+**Decision: Gemini only** (`gemini-embedding-001`). Setup is just an API key and cost is per token, but **chunk text leaves our infrastructure**. A self-hosted option (Hugging Face TEI with bge-m3 and a bge-reranker) was built and then removed to keep one backend. Bringing it back means adding a backend to `sharepoint_rag.models`. **No reranker for now:** results are ordered by hybrid RRF alone. The Gemini API has no rerank endpoint; Google's reranker is the Vertex AI Ranking API, which needs a Google Cloud project and service-account credentials. Revisit once the retrieval evals are hard enough to show whether reranking helps.
 
 ## Search index
 
@@ -191,13 +185,12 @@ sequenceDiagram
     S->>I: embed query
     S->>P: keyword + vector search, only chunks the user may read
     P-->>S: top ~50 from each, merged (RRF)
-    S->>I: rerank
     S->>G: can the user still open these files?
     G-->>S: allowed set
     S-->>C: top results with links and snippets
 ```
 
-Rough timing (estimates, not measurements): embed query 50-150 ms, search tens of ms, rerank 100-300 ms on CPU, Graph check 200-500 ms. The Graph check is the slowest part and is the price of the stronger guarantee.
+Rough timing (estimates, not measurements): embed query 50-150 ms, search tens of ms, Graph check 200-500 ms. The Graph check is the slowest part and is the price of the stronger guarantee.
 
 ## Permissions
 
@@ -207,20 +200,21 @@ Each chunk stores an **ACL**: the Entra user IDs, group IDs and markers (like `o
 
 **Layer 2: live check.** The index can lag SharePoint, so the final results are checked against Graph with the user's own token. Anything they can't open is dropped. If the check itself fails, return nothing.
 
-Groups are looked up at query time (cached up to ~5 minutes), so joining or leaving a group needs no re-indexing. A new member sees the group's files up to 5 minutes late, because layer 2 can drop results but never add them. A removed member may still match in layer 1 for that long, but layer 2 drops those files at once. This lookup needs a group-read permission the app doesn't request today (`User.Read`, `Sites.Read.All`, `Files.Read.All`), probably with admin consent. Confirm the exact scope in the Graph docs. If the lookup fails, show an error. Never search with a partial list, because group-shared files would silently vanish.
+Groups are looked up at query time (cached up to ~5 minutes), so joining or leaving a group needs no re-indexing. A new member sees the group's files up to 5 minutes late, because layer 2 can drop results but never add them. A removed member may still match in layer 1 for that long, but layer 2 drops those files at once. The lookup is `/me/transitiveMemberOf`, which Microsoft documents as needing only the `User.Read` the app already has; every returned object id is kept, so objects Graph returns without a type under that scope still count. More scopes can be added with `GRAPH_EXTRA_SCOPES`. If the lookup fails, show an error. Never search with a partial list, because group-shared files would silently vanish.
 
 Hard cases:
-- **Guests.** They never get `org:members`, so "anyone in the organization" links don't reach them.
+- **Guests.** They never get `org:members`, so "anyone in the organization" links don't reach them. SharePoint's "Everyone" claim (which does include guests) is stored as `org:everyone`, held by every signed-in user.
 - **Anonymous links.** Stored as `org:anonymous`, which nobody has. Such files are found only through their other grants.
-- **SharePoint-local groups and unusual links.** Graph doesn't expand all of them. If we can't resolve a file's permissions, mark it `unresolved` and show it to nobody. A metric tracks how many.
-- **Stale text.** Layer 2 only checks that the file can still be opened. Snippets come from the indexed copy, so text the author just removed, or a file stuck in `error`, can still be served until it's re-indexed. The delay is bounded by the crawl interval (and for `error` files, by retries), not by layer 2.
+- **SharePoint site groups.** Most team-site files are shared through the site's Owners/Members/Visitors groups, which Graph lists but doesn't expand. The worker reads their members from SharePoint's REST API (`sync_worker.directory`) and maps them to Entra users (UPN → id), Entra and Microsoft 365 groups, Microsoft 365 group owners (listed through Graph, since a token's groups claim covers membership, not ownership) and the everyone claims. Answers are cached for 10 minutes. Membership changes don't touch files, so delta misses them, and the daily sweep picks them up; a removal is caught by layer 2 right away. A group whose members can't be read, or with any member we can't map, leaves the file `unresolved`.
+- **Unusual links and other unknown grants.** If we can't resolve a file's permissions, mark it `unresolved` and show it to nobody. A metric tracks how many.
+- **Stale text.** Layer 2 only checks that the file can still be opened. Snippets come from the indexed copy, so text the author just removed, or a file stuck in `error`, can still be served until it's re-indexed. The delay is bounded by the crawl interval (and for `error` files, by retries, then the daily sweep, which re-queues them), not by layer 2.
 - **Permission-only changes.** Delta may miss them, so the daily sweep catches up. A missed revocation is caught by layer 2 right away. A missed grant just shows up late.
 - **Many groups.** Thousands of groups per user is fine for Postgres in theory but needs a test.
 - **The index is sensitive.** It holds everything the crawler can read. Encrypt the disk, isolate the network, and let only the mcp-server read it.
 
 ## Data model
 
-New tables and columns are marked *new*; the rest exist in `schema.sql`.
+All of this is in `schema.sql` (tables marked *new* were added with the sync-worker); chunk tables are created per generation by `sharepoint_rag.generations`.
 
 ```
 sites            (new)  id, name, web_url, enabled              -- admin-managed list
@@ -234,7 +228,7 @@ source_generations (new) source_id, generation_id, etag
 index_generations  (new) id, model, dimensions, status          -- building | active | retired
 chunks_g<N>             source_id, ordinal, text, heading_path, embedding, tsv, acl, metadata
 jobs               (new) id, kind, payload, run_at, attempts, locked_by, state, last_error
-oauth_clients      (new) client registrations (today: in memory)
+oauth_clients      (new) client registrations
 oauth_tokens       (new) hashed opaque tokens -> Entra account, expiry
 msal_cache         (new) encrypted per-user Entra token cache
 usage_limits       (new) per-user counters for rate limits
@@ -254,42 +248,41 @@ flowchart TB
         inf[inference-server]
         db[(postgres + pgvector)]
     end
-    proxy[TLS proxy] --> mcp
     mcp --> db
     worker --> db
     mcp --> inf
     worker --> inf
 ```
 
-- **Today (single user).** `mcp-server` on loopback only. It doesn't use Postgres yet.
-- **Team.** Add `sync-worker`, `inference-server` and a TLS proxy in front of `mcp-server`. Needs:
-  - a configurable public URL (the OAuth issuer, resource URL and Entra redirect URI are hard-coded to `http://localhost:<port>` today);
-  - OAuth state, signed-in accounts and the Entra token cache in Postgres;
-  - MCP sessions: they live in one process's memory today. Either route each client to the same replica (sticky routing), or run the SDK in stateless mode. Prefer sticky routing, since agent progress updates need a long-lived connection;
-  - restricted client registration, secrets in a secret store, a separate app registration for the sync-worker, and per-user rate limits.
+- **Single user.** `docker compose up`: all four services, `mcp-server` on loopback only.
+- **Team (not set up; everything is localhost for now).** The same plus an HTTPS proxy in front of the mcp-server (see [Setup](setup.md#team-use-not-set-up)):
+  - `PUBLIC_URL` sets the OAuth issuer, resource URL and Entra redirect URI;
+  - OAuth state, signed-in accounts and the encrypted Entra token cache are in Postgres;
+  - MCP sessions live in one process's memory. Either route each client to the same replica (sticky routing), or set `MCP_STATELESS=true`. Prefer sticky routing, since agent progress updates need a long-lived connection;
+  - client registration only to loopback or operator-allowed redirect URIs, a separate app registration for the sync-worker, per-user rate limits. Secrets in a secret store is up to the deployment.
 - **Scale.** `mcp-server` and `sync-worker` are stateless, so add replicas. Graph's rate limits cap the sync-worker. `inference-server` scales on its own and is where a GPU helps first.
 
 ## Security
 
-- Users sign in with their own Entra identity. App-level credentials exist only in the sync-worker, under a separate Entra app registration and secret from the mcp-server's. Their scope depends on the [open permission question](#sync-worker): it may end up tenant-wide read.
+- Users sign in with their own Entra identity. App-level credentials exist only in the sync-worker, under a separate Entra app registration (with a certificate) from the mcp-server's. Their scope depends on the [open permission question](#sync-worker): it may end up tenant-wide read.
 - Permission checks fail closed: layer 2 errors, failed group lookups and unresolved permissions all return nothing.
 - Client tokens are opaque, hashed, short-lived and rotated. The server holds Entra refresh tokens in an encrypted cache with a key kept outside the database. A database leak plus that key would expose every signed-in user's access, so guard the key.
 - No original files are stored. The audit log keeps a keyed HMAC of each query (a plain hash of a short query can be guessed) plus result IDs, not content. Still treat it as sensitive.
-- Text may leave our infrastructure only through the hosted embedding/rerank API and the Claude API. Make both explicit choices per deployment.
+- Text may leave our infrastructure only through the Gemini embedding API and the `sharepoint_ask` model provider (Gemini by default). Both are on once `GEMINI_API_KEY` is set; `ASK_MODEL=none` turns the agent off.
 
 ## Quality checks
 
-- The permission and verification evals must stay at 1.0 through any change to search or permission sync. Add cases for reranking on/off, unresolved permissions, group changes, guests, out-of-order permission jobs and generation swaps.
+- The permission and verification evals must stay at 1.0 through any change to search or permission sync. Add cases for unresolved permissions, group changes, guests, out-of-order permission jobs and generation swaps.
 - The retrieval dataset is 10 documents, so vector search already scores 1.0 and can't show improvements. Add harder cases before tuning anything.
 - The agent needs answer-quality and groundedness evals. The current evals deliberately use no LLM.
-- Watch: sync lag per drive, queue depth and errors, files by `status` and `acl_status`, Graph 429 rate, embed/rerank latency, how often layer 2 drops results (a spike means stale permissions), agent token use.
+- Watch: sync lag per drive, queue depth and errors, files by `status` and `acl_status`, Graph 429 rate, embed latency, how often layer 2 drops results (a spike means stale permissions), agent token use.
 
 ## Build order
 
 1. **Index and base permissions.** First the permission spike. Then the sync-worker (`discover_sites`, `crawl_drive`, `index_item`, deletes, job queue), with permissions read in the same transaction as the chunks. Ship with the full query-side permission model: group lookup and consent, `org:members` for members only, guest handling, fail on lookup error. Only then point `sharepoint_search` at the index.
 2. **Permission freshness.** `sync_item_acl`, daily sweep, unresolved handling, new evals.
-3. **Inference-server.** `/embed` and `/rerank`, self-hosted option, reranking, index generations. Use the evals to pick models.
-4. **Multi-user server.** OAuth state and token cache in Postgres, restricted registration, audit log, rate limits, TLS guide.
+3. **Inference-server.** `/embed` on Gemini, index generations.
+4. **Multi-user server.** OAuth state and token cache in Postgres, restricted registration, audit log, rate limits. HTTPS for team use is not set up yet.
 5. **Agent.** `sharepoint_ask` with budgets, rate limits and answer evals.
 6. **Optional.** Graph webhooks for faster updates.
 
@@ -298,8 +291,7 @@ Steps 1 and 2 come first. Nothing else is worth much until the index is fresh an
 ## Open questions
 
 - **App permission** for reading item permissions (see [sync-worker](#sync-worker)). Blocks step 1.
-- **Hosted or self-hosted** embeddings and reranking for the first real deployment.
-- **Site list:** config file, admin page, or both. Or tenant-wide read so the worker finds sites itself.
-- **Unresolvable permissions:** hide them (the plan), or allow with only the live check (more results, weaker guarantee).
+- **Site list:** today `SYNC_SITES` plus `python -m sync_worker sites add|disable`, or `SYNC_DISCOVER_ALL_SITES=true` with tenant-wide read. An admin page is not built.
+- **Unresolvable permissions:** hidden by default; `UNRESOLVED_ACL_POLICY=live_check` allows them with only the live check (more results, weaker guarantee). Site groups are now expanded, so what's left is unusual: watch the `unresolved` count in `sync_worker status` on a real tenant before deciding.
 - **More file types:** old `.doc`/`.ppt`, scanned PDFs (OCR), SharePoint pages and lists, OneNote, Teams. Pages and lists need other Graph endpoints.
 - **Cleanup after delete:** how long deleted or revoked content may remain in logs and caches.

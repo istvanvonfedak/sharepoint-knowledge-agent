@@ -16,5 +16,5 @@ async def test_text_file_read_sends_range_and_auth_headers(monkeypatch):
 
     result = await graph.read_file_text("tok", "d", "i", 100)
 
-    assert result == {"name": "a.txt", "truncated": False, "text": "hello world"}
+    assert result == {"name": "a.txt", "webUrl": None, "parentId": None, "truncated": False, "text": "hello world"}
     assert seen == {"range": "bytes=0-100", "auth": "Bearer tok"}

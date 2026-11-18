@@ -37,7 +37,8 @@ def _errored(log) -> bool:
 
 def run_regression(log_dir: str | None) -> bool:
     ok = True
-    for log in inspect_eval([extraction_regression(), acl_regression(), verification_regression()], log_dir=log_dir, display="none"):
+    tasks = [extraction_regression(), acl_regression(), verification_regression()]
+    for log in inspect_eval(tasks, log_dir=log_dir, display="none"):
         if _errored(log):
             ok = False
             continue

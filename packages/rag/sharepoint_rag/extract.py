@@ -13,6 +13,7 @@ MAX_XML_BYTES = 50_000_000  # decompressed size cap per XML part (zip-bomb guard
 MAX_PDF_PAGES = 500
 MAX_XLSX_ROWS = 5000
 TEXT_EXTENSIONS = {".txt", ".csv", ".json", ".xml", ".log"}
+EXTENSIONS = TEXT_EXTENSIONS | {".md", ".html", ".htm", ".docx", ".pptx", ".pdf", ".xlsx"}  # everything extract() reads
 _W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 _A = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
 

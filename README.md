@@ -9,24 +9,23 @@ SharePoint Q&A agent with a built-in MCP server. Entra ID delegated auth means u
 
 ## Layout
 ```
-apps/mcp-server/      MCP server and tool definitions (python -m mcp_server)
-packages/sharepoint/  Entra ID auth + Microsoft Graph client (sharepoint_client)
-packages/rag/         pgvector schema, DB access, Gemini embeddings (sharepoint_rag)
-evals/                Inspect AI regression + capability evals (see evals/README.md)
-infra/                docker-compose.yml (MCP server + Postgres/pgvector)
+apps/mcp-server/        MCP server, OAuth, tools and the sharepoint_ask agent (python -m mcp_server)
+apps/sync-worker/       Crawls SharePoint into the index, keeps permissions current (python -m sync_worker)
+apps/inference-server/  /embed over Gemini (python -m inference_server)
+packages/sharepoint/    Delegated Entra ID sign-in + Microsoft Graph client as the user (sharepoint_client)
+packages/rag/           Schema, index generations, job queue, extraction, search (sharepoint_rag)
+evals/                  Inspect AI regression + capability evals (see evals/README.md)
+infra/                  docker-compose.yml (all services + Postgres/pgvector)
+tests/                  Fixtures and helpers shared by every test suite (loaded by pytest.ini)
 ```
-One shared `.venv` at the repo root; each package is installed editable by `requirements.txt`. Config comes from the root `.env`.
+One shared `.venv` at the repo root; each package is installed editable by `requirements.txt`. Config comes from the root `.env` (shared), `.env.mcp` (the mcp-server's Entra app) and `.env.worker` (the sync-worker's separate Entra app).
+
+Tests: `.venv/bin/python -m pytest`. Database tests need a Postgres with pgvector in `TEST_DATABASE_URL` (see `tests/fixtures.py`) and are skipped without it.
 
 ## Security notes
-- Binds to `127.0.0.1` only; intended for single-user local use.
-- Clients register dynamically, but only loopback redirect URIs are accepted. Don't expose the port beyond localhost.
-- Tokens issued by this server are opaque, bound to the user's Entra account, and expire after 1 hour (refresh tokens: 30 days, rotated).
-
-## Database (RAG)
-`docker compose --env-file .env -f infra/docker-compose.yml up -d db`, then `.venv/bin/python -m sharepoint_rag.db` to apply the schema.
-Embeddings use the Gemini API: set `GEMINI_API_KEY` (https://aistudio.google.com/apikey).
-
-## Indexer permissions (needed for the RAG crawler)
-The background indexer uses an app-only token, which needs Graph **application** permissions (separate from the delegated ones in [Setup](docs/setup.md)):
-`Sites.Selected` (grant per site) or `Sites.Read.All` + `Files.Read.All`, then grant admin consent. Without them Graph returns 401/403.
-If you change `EMBEDDING_DIMENSIONS` after the first migration, `sharepoint_rag.db` will refuse to run until the table is recreated.
+- Users only get content they can open in SharePoint: search filters by their Entra id and groups inside the query, then re-checks every result live with their own token. Failures return nothing.
+- The mcp-server is plain HTTP on `127.0.0.1` only, for use from the same machine. Serving other users needs HTTPS in front of it, which isn't set up ([Setup](docs/setup.md#team-use-not-set-up)).
+- Clients register dynamically, but only to loopback or operator-allowed redirect URIs.
+- Tokens issued by this server are opaque, stored hashed, bound to the user's Entra account, and expire after 1 hour (refresh tokens: 30 days, rotated). Entra tokens are stored encrypted with `TOKEN_ENCRYPTION_KEY`; keep that key out of the database.
+- The sync-worker has its own Entra app with app-only read access; signed with a certificate the mcp-server never holds.
+- The index holds everything the crawler can read: keep Postgres on a private network and its disk encrypted. Embeddings and `sharepoint_ask` both send text to Google's Gemini API by default (chunk text for embeddings, text the user may read for the agent). `ASK_MODEL=none` turns the agent off, or points it at another provider.

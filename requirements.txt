@@ -3,4 +3,6 @@
 -e packages/sharepoint
 -e packages/rag
 -e apps/mcp-server
+-e apps/sync-worker
+-e apps/inference-server
 -e evals
