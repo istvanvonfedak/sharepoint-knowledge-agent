@@ -401,13 +401,14 @@ def build_graph(model: BaseChatModel, loop: Loop, *, max_steps: int, max_tokens:
 
 async def ask(
     model: BaseChatModel, question: str, tools: AskTools, *, max_steps: int, max_tokens: int,
-    timeout_seconds: float, progress: Progress | None = None,
+    timeout_seconds: float, progress: Progress | None = None, metadata: dict | None = None,
 ) -> AskResult:
+    """`metadata` is attached to the run's trace when LangSmith tracing is on."""
     loop = Loop(tools)
     graph = build_graph(model, loop, max_steps=max_steps, max_tokens=max_tokens,
                         deadline=time.monotonic() + timeout_seconds, progress=progress)
     state = await graph.ainvoke(
         {"messages": [SystemMessage(SYSTEM), HumanMessage(question)], "steps": 0, "input_tokens": 0, "output_tokens": 0, "result": None},
-        {"recursion_limit": 2 * max_steps + 4},
+        {"recursion_limit": 2 * max_steps + 4, "run_name": "sharepoint_ask", "metadata": metadata or {}},
     )
     return state["result"]

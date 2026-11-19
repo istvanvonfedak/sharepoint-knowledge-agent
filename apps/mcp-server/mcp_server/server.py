@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import hashlib
 import html
 import json
 import logging
@@ -227,6 +228,8 @@ if settings.ASK_MODEL:
             result = await agent.ask(
                 _ask_model, question, tools, max_steps=settings.ASK_MAX_STEPS,
                 max_tokens=settings.ASK_MAX_TOKENS, timeout_seconds=settings.ASK_TIMEOUT_SECONDS, progress=progress,
+                # A pseudonym, not the Entra id: traces of one user's runs group together without naming them.
+                metadata={"user": hashlib.sha256(user_id.encode()).hexdigest()[:16], "model": settings.ASK_MODEL},
             )
         except Exception as e:  # e.g. the user's Graph token was revoked mid-run
             await usage.audit(user_id, "ask", query=question, detail={"status": "error", "error": type(e).__name__})
