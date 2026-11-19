@@ -33,6 +33,30 @@ async def test_failure_backs_off_then_gives_up(pool, monkeypatch):
         assert await queue.fail(conn, job, "boom again") == "failed"
 
 
+async def test_a_deferred_job_waits_but_keeps_its_attempts(pool, monkeypatch):
+    """A rate limit is not the job's fault: deferring it any number of times never uses up MAX_ATTEMPTS."""
+    monkeypatch.setattr(queue, "MAX_ATTEMPTS", 2)
+    async with pool.connection() as conn:
+        await queue.enqueue(conn, "index_item", {})
+        for _ in range(5):
+            job = await queue.claim(conn)
+            assert job.attempts == 1
+            assert await queue.defer(conn, job, "rate limited", 0) == "queued"
+        assert (await queue.claim(conn)).attempts == 1
+        await queue.enqueue(conn, "index_item", {"n": 2})
+        job = await queue.claim(conn)
+        assert await queue.defer(conn, job, "rate limited", 60) == "queued"
+        assert await queue.claim(conn) is None  # waits for its delay
+
+
+async def test_claim_can_leave_kinds_out(pool):
+    async with pool.connection() as conn:
+        await queue.enqueue(conn, "index_item", {})
+        await queue.enqueue(conn, "sweep_acls", {})
+        assert (await queue.claim(conn, exclude=["index_item", "backfill_generation"])).kind == "sweep_acls"
+        assert await queue.claim(conn, exclude=["index_item"]) is None
+
+
 async def test_expired_lease_is_reclaimed(pool):
     async with pool.connection() as conn:
         await queue.enqueue(conn, "index_item", {}, dedupe_key="k")

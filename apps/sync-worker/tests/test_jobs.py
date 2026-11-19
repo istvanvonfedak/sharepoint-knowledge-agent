@@ -263,6 +263,144 @@ async def test_malformed_responses_are_retried_not_permanent(ctx, monkeypatch):
     assert not isinstance(e.value, jobs.Permanent)
 
 
+async def test_a_rate_limit_resumes_where_it_stopped_and_keeps_the_file_status(ctx, monkeypatch):
+    """Each embedded batch is kept: after a rate limit the retry embeds only the rest, and the file is not
+    marked `error` (it is waiting, not broken)."""
+    from sharepoint_rag.embeddings import RateLimited
+    from tests.testing_support import fake_vector
+
+    g = ctx.graph
+    text = "\n\n".join(f"Paragraph {n}: " + "torque the lug nuts to spec. " * 40 for n in range(12))
+    g.items, g.perms, g.content = {"a": raw("a", name="a.txt")}, {"a": []}, {"a": text.encode()}
+    await seed(ctx, "a")
+    monkeypatch.setattr(jobs.embeddings, "BATCH_SIZE", 2)
+    embedded, budget = [], [2]
+
+    async def embed(model, texts, task, dimensions):
+        if budget[0] == 0:
+            raise RateLimited("quota", retry_after=3)
+        budget[0] -= 1
+        embedded.extend(texts)
+        return [fake_vector(f"{model}:{t}", dimensions) for t in texts]
+
+    monkeypatch.setattr(jobs.inference, "embed", embed)
+    with pytest.raises(RateLimited):
+        await jobs.index_item(ctx, {"drive_id": "d1", "item_id": "a"})
+    assert len(embedded) == 4
+    assert await rows(ctx, "SELECT status FROM sources WHERE item_id = 'a'") == [("pending",)]
+
+    budget[0] = 100
+    await jobs.index_item(ctx, {"drive_id": "d1", "item_id": "a"})
+    chunks = (await rows(ctx, "SELECT count(*) FROM chunks_g1"))[0][0]
+    assert len(embedded) == chunks > 4  # every chunk embedded exactly once over both attempts
+    assert len(set(embedded)) == len(embedded)
+    assert await rows(ctx, "SELECT status FROM sources WHERE item_id = 'a'") == [("indexed",)]
+    assert await rows(ctx, "SELECT count(*) FROM embedding_progress") == [(0,)]  # written chunks hold the vectors now
+
+
+async def test_a_lost_lease_while_embedding_for_a_building_generation_stops_the_job(ctx, monkeypatch):
+    """A building generation's embedding errors are logged and left to its backfill, but a lost lease is not an
+    embedding error: the job must stop, or two workers write the file."""
+    import dataclasses
+
+    g = ctx.graph
+    g.items, g.perms, g.content = {"a": raw("a")}, {"a": []}, {"a": b"hello"}
+    await seed(ctx, "a")
+    real_live, real_embed = jobs.generations.live, jobs._embed
+
+    async def live(conn, **kwargs):
+        active = await real_live(conn, **kwargs)
+        return active + [dataclasses.replace(active[0], id=99, status="building")]
+
+    async def embed(ctx, gen, files, *, reuse):
+        if gen.status == "building":
+            raise jobs.LeaseLost("job lease lost")
+        return await real_embed(ctx, gen, files, reuse=reuse)
+
+    monkeypatch.setattr(jobs.generations, "live", live)
+    monkeypatch.setattr(jobs, "_embed", embed)
+    with pytest.raises(jobs.LeaseLost):
+        await jobs.index_item(ctx, {"drive_id": "d1", "item_id": "a"})
+    assert await rows(ctx, "SELECT count(*) FROM chunks_g1") == [(0,)]
+
+
+async def test_a_rate_limited_index_still_applies_the_new_permissions(ctx, monkeypatch):
+    """The job waits for the quota, but a narrowed share must not: the permission read it made is written."""
+    from sharepoint_rag.embeddings import RateLimited
+
+    g = ctx.graph
+    g.items, g.content = {"a": raw("a")}, {"a": b"budget plan"}
+    g.perms = {"a": [{"roles": ["read"], "grantedToV2": {"user": {"id": "u1"}}}, {"roles": ["read"], "grantedToV2": {"user": {"id": "u2"}}}]}
+    await seed(ctx, "a")
+    await jobs.index_item(ctx, {"drive_id": "d1", "item_id": "a"})
+    g.items["a"], g.content["a"] = raw("a", etag="e2"), b"budget plan, revised"  # edited, and u2 lost access
+    g.perms["a"] = [{"roles": ["read"], "grantedToV2": {"user": {"id": "u1"}}}]
+
+    async def quota(*args):
+        raise RateLimited("quota", retry_after=30)
+
+    monkeypatch.setattr(jobs.inference, "embed", quota)
+    with pytest.raises(RateLimited):
+        await jobs.index_item(ctx, {"drive_id": "d1", "item_id": "a"})
+    assert await rows(ctx, "SELECT acl FROM chunks_g1") == [(["user:u1"],)]  # the old chunk, new permissions
+    assert await rows(ctx, "SELECT status FROM sources") == [("indexed",)]
+
+
+async def test_a_backfill_embeds_small_files_together_and_resumes_after_a_rate_limit(ctx, db_url, monkeypatch):
+    import psycopg
+    from sharepoint_rag import generations
+    from sharepoint_rag.embeddings import RateLimited
+    from tests.testing_support import TEST_DIMENSIONS, fake_vector
+
+    g = ctx.graph
+    names = [f"f{n}" for n in range(5)]
+    g.items = {n: raw(n) for n in names}
+    g.perms, g.content = {n: [] for n in names}, {n: f"note {n} about the winch".encode() for n in names}
+    await seed(ctx, *names)
+    for n in names:
+        await jobs.index_item(ctx, {"drive_id": "d1", "item_id": n})
+    with psycopg.connect(db_url, autocommit=True) as sconn:
+        gen_id = generations.create(sconn, "gemini:new-model", TEST_DIMENSIONS)
+    monkeypatch.setattr(jobs.embeddings, "BATCH_SIZE", 3)
+    calls, budget = [], [1]
+
+    async def embed(model, texts, task, dimensions):
+        if budget[0] == 0:
+            raise RateLimited("quota", retry_after=3)
+        budget[0] -= 1
+        calls.append(list(texts))
+        return [fake_vector(f"{model}:{t}", dimensions) for t in texts]
+
+    monkeypatch.setattr(jobs.inference, "embed", embed)
+    with pytest.raises(RateLimited):
+        await jobs.backfill_generation(ctx, {"generation_id": gen_id})
+    budget[0] = 100
+    await jobs.backfill_generation(ctx, {"generation_id": gen_id})
+    assert [len(c) for c in calls] == [3, 2]  # five one-chunk files in two calls, the first batch kept across the limit
+    assert await rows(ctx, f"SELECT count(*) FROM chunks_g{gen_id}") == [(5,)]
+    assert await rows(ctx, "SELECT count(*) FROM embedding_progress") == [(0,)]
+
+
+async def test_a_reindex_keeps_the_vectors_of_unchanged_chunks(ctx, monkeypatch):
+    g = ctx.graph
+    paragraphs = [f"Section {n}. " + "check the hydraulic fluid level. " * 40 for n in range(6)]
+    g.items, g.perms, g.content = {"a": raw("a", name="a.txt")}, {"a": []}, {"a": "\n\n".join(paragraphs).encode()}
+    await seed(ctx, "a")
+    await jobs.index_item(ctx, {"drive_id": "d1", "item_id": "a"})
+    embedded = []
+    real = jobs.inference.embed
+
+    async def counting(model, texts, task, dimensions):
+        embedded.extend(texts)
+        return await real(model, texts, task, dimensions)
+
+    monkeypatch.setattr(jobs.inference, "embed", counting)
+    g.items["a"] = raw("a", etag="e2", name="a.txt")  # one paragraph edited
+    g.content["a"] = "\n\n".join(paragraphs[:-1] + ["Section 5. replaced text."]).encode()
+    await jobs.index_item(ctx, {"drive_id": "d1", "item_id": "a"})
+    assert 0 < len(embedded) < (await rows(ctx, "SELECT count(*) FROM chunks_g1"))[0][0]
+
+
 async def test_oversized_download_is_permanent(ctx):
     g = ctx.graph
     g.items, g.perms, g.content = {"a": raw("a")}, {"a": []}, {"a": b"x"}

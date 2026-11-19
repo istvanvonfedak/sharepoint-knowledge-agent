@@ -21,9 +21,10 @@ from datetime import datetime, timezone
 from pathlib import PurePosixPath
 
 from psycopg_pool import AsyncConnectionPool
-from sharepoint_rag import generations, index_store, inference, queue
+from sharepoint_rag import embeddings, generations, index_store, inference, queue
 from sharepoint_rag.acl import AclRead
 from sharepoint_rag.chunk import Chunk
+from sharepoint_rag.embeddings import RateLimited
 from sharepoint_rag.extract import EXTENSIONS, ExtractionError
 from sharepoint_rag.index_store import Item
 
@@ -305,6 +306,7 @@ async def index_item(ctx: Context, payload: dict) -> None:
         if await index_store.is_current(conn, drive_id, item_id, item.etag):
             return
         gens = await generations.live(conn)
+        source = await index_store.source_id(conn, drive_id, item_id)
 
     ext = PurePosixPath(item.name.lower()).suffix
     size = raw.get("size") or 0
@@ -326,19 +328,26 @@ async def index_item(ctx: Context, payload: dict) -> None:
         texts = [Chunk(c.heading_path or "", c.text).embedding_text for c in chunks]
         for g in gens:
             try:
-                vectors[g.id] = await inference.embed(g.model, texts, "document", g.dimensions)
+                vectors[g.id] = (await _embed(ctx, g, [(source, texts)], reuse=True))[0]
             except Exception as e:
-                if g.status == "active":
+                if g.status == "active" or isinstance(e, (RateLimited, LeaseLost)):
                     raise
                 # A broken backend for a generation still being built must not stop updates to the live index:
-                # write_index leaves this one out and queues its backfill.
+                # write_index leaves this one out and queues its backfill. A rate limit is different: it is the
+                # same quota for every generation, so the job waits for it rather than leave work to the backfill.
                 log.warning("generation %d: embedding failed (%s); its backfill will catch up", g.id, e)
-            await ctx.heartbeat()
     except (ExtractionError, FileTooLarge) as e:  # corrupt or oversized: retrying gives the same result
         await _record_failure(ctx, item, acl_read, str(e))
         raise Permanent(str(e)) from e
     except LeaseLost:
         raise  # the worker that took the job over owns the file's state now
+    except RateLimited:
+        # Deferred, not failed: the file keeps its status and old chunks until the job runs again. The permission
+        # read is applied now all the same: a narrowed share must not wait for the quota.
+        if acl_read is not None:
+            async with ctx.pool.connection() as conn:
+                await index_store.write_acl(conn, drive_id, item_id, acl_read)
+        raise
     except Exception as e:
         if acl_read is None and isinstance(e, GraphError) and e.status in (401, 403):
             # The app can't read this file's permissions: hide it rather than keep its last known list.
@@ -347,10 +356,41 @@ async def index_item(ctx: Context, payload: dict) -> None:
         raise
     async with ctx.pool.connection() as conn:
         result = await index_store.write_index(conn, item, acl_read, chunks, vectors)
+        if source is not None:
+            await index_store.clear_progress(conn, list(vectors), [source])
     if result == "gone":
         log.info("%s/%s was deleted while it was being indexed; not written", drive_id, item_id)
     elif result == "stale":
         log.info("%s/%s: a newer version was indexed meanwhile; applied permissions only", drive_id, item_id)
+
+
+async def _embed(ctx: Context, g, files: list[tuple[int | None, list[str]]], *, reuse: bool) -> list[list[list[float]]]:
+    """Vectors in generation `g` for each (source id, embedding texts) file, embedding only what isn't known yet.
+    `reuse`: a file's unchanged chunks keep their vectors (index_item; a backfill's files have none in `g` yet).
+    Each Gemini batch is kept as it arrives (embedding_progress), so a retry after a rate limit resumes instead of
+    spending the quota again. Small files share batches. A source id of None (the file's row is gone): nothing kept."""
+    known: dict[tuple[int | None, str], list[float]] = {}
+    sources = [source for source, _ in files if source is not None]
+    async with ctx.pool.connection() as conn:
+        progress = await index_store.progress_vectors(conn, g, sources)
+        for source, texts in files:
+            if source is None:
+                continue
+            if reuse:
+                known |= {(source, t): v for t, v in (await index_store.reusable_vectors(conn, g, source, texts)).items()}
+            for t in texts:
+                if (source, t) not in known and (v := progress.get((source, index_store.text_digest(t)))) is not None:
+                    known[(source, t)] = v
+    missing = list(dict.fromkeys((source, t) for source, texts in files for t in texts if (source, t) not in known))
+    # One Gemini batch per call: a rate limit then loses nothing that was already paid for.
+    for i in range(0, len(missing), embeddings.BATCH_SIZE):
+        batch = missing[i : i + embeddings.BATCH_SIZE]
+        vectors = await inference.embed(g.model, [t for _, t in batch], "document", g.dimensions)
+        async with ctx.pool.connection() as conn:
+            await index_store.save_progress(conn, g, [(s, t, v) for (s, t), v in zip(batch, vectors) if s is not None])
+        known |= dict(zip(batch, vectors))
+        await ctx.heartbeat()
+    return [[known[(source, t)] for t in texts] for source, texts in files]
 
 
 async def _record_failure(ctx: Context, item: Item, acl_read, note: str) -> None:
@@ -468,12 +508,12 @@ async def backfill_generation(ctx: Context, payload: dict) -> None:
         if not batch:
             log.info("generation %d is backfilled; check and activate it with python -m sharepoint_rag.generations", gen_id)
             return
-        texts = [Chunk(c.heading_path or "", c.text).embedding_text for src in batch for c in src.chunks]
-        vectors = iter(await inference.embed(gen.model, texts, "document", gen.dimensions))
-        for src in batch:
-            src_vectors = [next(vectors) for _ in src.chunks]
-            async with ctx.pool.connection() as conn:
+        files = [(src.source_id, [Chunk(c.heading_path or "", c.text).embedding_text for c in src.chunks]) for src in batch]
+        vectors = await _embed(ctx, gen, files, reuse=False)  # resumable: a rate limit midway keeps what was embedded
+        async with ctx.pool.connection() as conn:
+            for src, src_vectors in zip(batch, vectors):
                 await index_store.write_backfill(conn, gen_id, src, src_vectors)
+            await index_store.clear_progress(conn, [gen_id], [src.source_id for src in batch])
         await ctx.heartbeat()
     async with ctx.pool.connection() as conn:
         await queue.enqueue(conn, "backfill_generation", {"generation_id": gen_id}, dedupe_key=f"backfill:{gen_id}")

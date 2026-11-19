@@ -2,11 +2,14 @@
 limits allow; they coordinate only through Postgres (job claims, schedules, the shared Graph throttle)."""
 import asyncio
 import logging
+import random
 import signal
+import time
 from contextlib import suppress
 
 from psycopg_pool import AsyncConnectionPool
-from sharepoint_rag import db, queue
+from sharepoint_rag import db, index_store, queue
+from sharepoint_rag.embeddings import RateLimited
 
 from . import config, jobs
 from .directory import Directory
@@ -36,6 +39,7 @@ async def schedule_tick(pool: AsyncConnectionPool) -> None:
             if reaped := await queue.reap(conn):
                 log.warning("re-queued %d job(s) whose worker stopped responding", reaped)
             await queue.prune(conn)
+            await index_store.prune_embedding_progress(conn)
             await conn.execute("DELETE FROM graph_throttle WHERE until < now()")
     if await _due(pool, "discover_sites", config.DISCOVER_INTERVAL):
         async with pool.connection() as conn:
@@ -51,7 +55,18 @@ async def schedule_tick(pool: AsyncConnectionPool) -> None:
             await queue.enqueue(conn, "sweep_acls", dedupe_key="sweep_acls")
 
 
+# Jobs that embed. While the quota is used up runners don't claim them (one claimed just before is deferred before
+# it starts): otherwise each would download and parse its file again only to meet the same rate limit.
+EMBEDDING_JOBS = ["index_item", "backfill_generation"]
+_quota_resets_at = 0.0  # time.monotonic() when the last rate limit said to come back
+
+
 async def run_job(pool: AsyncConnectionPool, graph: AppGraph, directory: Directory, job: queue.Job) -> None:
+    global _quota_resets_at
+    if job.kind in EMBEDDING_JOBS and (wait := _quota_resets_at - time.monotonic()) > 0:
+        async with pool.connection() as conn:
+            await queue.defer(conn, job, "rate limited: waiting for the embedding quota", wait)
+        return
     lost = asyncio.Event()
 
     async def heartbeat() -> None:
@@ -91,6 +106,15 @@ async def run_job(pool: AsyncConnectionPool, graph: AppGraph, directory: Directo
             raise  # shutting down
         # The job is someone else's now: record nothing (complete/fail would no-op on the lease anyway).
         log.warning("job %d %s: lease lost, stopped; another worker has it", job.id, job.kind)
+    except RateLimited as e:  # the embedding quota is used up: not this job's fault, so it costs no attempt
+        _quota_resets_at = max(_quota_resets_at, time.monotonic() + e.retry_after)
+        # Spread the deferred jobs out a little, so they don't all come due at the same moment and meet the limit again.
+        delay = e.retry_after * (1 + random.random() * 0.2)
+        async with pool.connection() as conn:
+            state = await queue.defer(conn, job, f"rate limited: {e}"[:300], delay)
+        # A long wait is a daily cap or a key without embedding quota: no job fails, so say so loudly.
+        log.log(logging.WARNING if e.retry_after > 300 else logging.INFO,
+                "job %d %s: embedding quota used up, %s for %.0fs", job.id, job.kind, state, delay)
     except Exception as e:
         retry = not isinstance(e, jobs.Permanent) and not (isinstance(e, GraphError) and e.status in (400, 401, 403))
         async with pool.connection() as conn:
@@ -107,7 +131,7 @@ async def runner(pool: AsyncConnectionPool, graph: AppGraph, directory: Director
     while not stop.is_set():
         try:
             async with pool.connection() as conn:
-                job = await queue.claim(conn)
+                job = await queue.claim(conn, exclude=EMBEDDING_JOBS if _quota_resets_at > time.monotonic() else None)
         except Exception:
             log.exception("claiming a job failed")
             job = None

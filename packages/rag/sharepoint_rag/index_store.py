@@ -16,7 +16,7 @@ from psycopg import sql
 
 from . import acl, generations, language, queue
 from .acl import AclRead
-from .chunk import chunk_sections
+from .chunk import Chunk, chunk_sections
 from .extract import extract
 from .generations import Generation
 
@@ -239,6 +239,69 @@ async def write_acl(conn: psycopg.AsyncConnection, drive_id: str, item_id: str, 
         effective = await _set_acl(conn, row[0], acl_read)
         await _set_chunk_acl(conn, gens, row[0], effective)
     return True
+
+
+def text_digest(text: str) -> bytes:
+    return hashlib.sha256(text.encode()).digest()
+
+
+async def source_id(conn: psycopg.AsyncConnection, drive_id: str, item_id: str) -> int | None:
+    row = await (await conn.execute("SELECT id FROM sources WHERE drive_id = %s AND item_id = %s", (drive_id, item_id))).fetchone()
+    return row[0] if row else None
+
+
+async def reusable_vectors(conn: psycopg.AsyncConnection, g: Generation, source: int, texts: list[str]) -> dict[str, list[float]]:
+    """Vectors of the file's current chunks in generation `g` whose embedding text is among `texts`: a re-index of
+    an edited or re-chunked file keeps its unchanged chunks' vectors."""
+    wanted = set(texts)
+    if not wanted:
+        return {}
+    # Match on text first and fetch only the vectors that are reused: a file's chunks can run to thousands.
+    matches = {}
+    cur = await conn.execute(sql.SQL("SELECT id, heading_path, text FROM {t} WHERE source_id = %s").format(t=g.table), (source,))
+    async for chunk_id, heading, text in cur:
+        key = Chunk(heading or "", text).embedding_text
+        if key in wanted:
+            matches[chunk_id] = key
+    if not matches:
+        return {}
+    cur = await conn.execute(sql.SQL("SELECT id, embedding FROM {t} WHERE id = ANY(%s)").format(t=g.table), (list(matches),))
+    return {matches[chunk_id]: vector.to_list() async for chunk_id, vector in cur}
+
+
+async def progress_vectors(conn: psycopg.AsyncConnection, g: Generation, sources: list[int]) -> dict[tuple[int, bytes], list[float]]:
+    """What earlier attempts of these files' jobs embedded in `g`, by (source id, text digest). Reading marks the
+    rows used, so a job deferred for hours keeps its progress past the prune."""
+    if not sources:
+        return {}
+    cur = await conn.execute(
+        "UPDATE embedding_progress SET used_at = now() WHERE generation_id = %s AND source_id = ANY(%s) "
+        "RETURNING source_id, digest, embedding",
+        (g.id, sources),
+    )
+    return {(source, bytes(digest)): vector.to_list() async for source, digest, vector in cur}
+
+
+async def save_progress(conn: psycopg.AsyncConnection, g: Generation, rows: list[tuple[int, str, list[float]]]) -> None:
+    """Keeps (source id, embedding text, vector) rows until the files are written."""
+    async with conn.cursor() as cur:
+        await cur.executemany(
+            "INSERT INTO embedding_progress (generation_id, source_id, digest, embedding) VALUES (%s, %s, %s, %s) "
+            "ON CONFLICT DO NOTHING",
+            [(g.id, source, text_digest(t), v) for source, t, v in rows],
+        )
+
+
+async def clear_progress(conn: psycopg.AsyncConnection, generation_ids: list[int], sources: list[int]) -> None:
+    """Once the files' chunks are written they hold the vectors: the table keeps only work not yet written."""
+    await conn.execute(
+        "DELETE FROM embedding_progress WHERE source_id = ANY(%s) AND generation_id = ANY(%s)", (sources, generation_ids)
+    )
+
+
+async def prune_embedding_progress(conn: psycopg.AsyncConnection, keep_hours: int = 24) -> None:
+    """Rows no job has read for a day: their file was skipped or its job gave up."""
+    await conn.execute("DELETE FROM embedding_progress WHERE used_at < now() - %s * interval '1 hour'", (keep_hours,))
 
 
 async def mark_error(conn: psycopg.AsyncConnection, drive_id: str, item_id: str, note: str) -> None:

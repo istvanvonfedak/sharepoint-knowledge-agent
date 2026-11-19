@@ -65,8 +65,10 @@ async def enqueue_many(conn: psycopg.AsyncConnection, jobs: list[tuple[str, dict
     )
 
 
-async def claim(conn: psycopg.AsyncConnection, kinds: list[str] | None = None) -> Job | None:
-    """Takes the next ready job (autocommit connection) and leases it to this worker."""
+async def claim(conn: psycopg.AsyncConnection, kinds: list[str] | None = None,
+                exclude: list[str] | None = None) -> Job | None:
+    """Takes the next ready job (autocommit connection) and leases it to this worker: of `kinds` if given, and
+    not of `exclude`."""
     lease = f"{WORKER_ID}:{uuid.uuid4().hex[:12]}"
     cur = await conn.execute(
         """
@@ -74,6 +76,7 @@ async def claim(conn: psycopg.AsyncConnection, kinds: list[str] | None = None) -
         WHERE id = (
             SELECT j.id FROM jobs j
             WHERE j.state = 'queued' AND j.run_at <= now() AND (%(kinds)s::text[] IS NULL OR j.kind = ANY(%(kinds)s))
+              AND (%(exclude)s::text[] IS NULL OR j.kind <> ALL(%(exclude)s))
               AND (j.dedupe_key IS NULL OR NOT EXISTS (
                   SELECT 1 FROM jobs r WHERE r.state = 'running' AND r.dedupe_key = j.dedupe_key))
             ORDER BY j.priority, j.run_at, j.id
@@ -81,7 +84,7 @@ async def claim(conn: psycopg.AsyncConnection, kinds: list[str] | None = None) -
         )
         RETURNING id, kind, payload, attempts, dedupe_key
         """,
-        {"me": lease, "lease": LEASE, "kinds": kinds},
+        {"me": lease, "lease": LEASE, "kinds": kinds, "exclude": exclude},
     )
     row = await cur.fetchone()
     return Job(*row, lease=lease) if row else None
@@ -109,8 +112,19 @@ async def fail(conn: psycopg.AsyncConnection, job: Job, error: str, *, retry: bo
     If a newer job with the same key is already queued, this one is closed: the newer one redoes the work."""
     exhausted = not retry or job.attempts >= MAX_ATTEMPTS
     delay = delay_seconds if delay_seconds is not None else min(BACKOFF_BASE_SECONDS * 2 ** (job.attempts - 1), BACKOFF_MAX_SECONDS)
+    return await _settle(conn, job, error, exhausted, delay)
+
+
+async def defer(conn: psycopg.AsyncConnection, job: Job, reason: str, delay_seconds: float) -> str:
+    """Re-queues a job that couldn't run yet (a rate limit, not a fault of the job): after `delay_seconds`, and
+    without spending one of its MAX_ATTEMPTS. Returns the new state."""
+    return await _settle(conn, job, reason, False, delay_seconds, refund=True)
+
+
+async def _settle(conn: psycopg.AsyncConnection, job: Job, error: str, exhausted: bool, delay: float,
+                  refund: bool = False) -> str:
     try:
-        return await _requeue(conn, job, error, exhausted, delay)
+        return await _requeue(conn, job, error, exhausted, delay, refund)
     except psycopg.errors.UniqueViolation:
         # A follow-up with the same key was queued (committed) while we decided: it redoes the work.
         await conn.execute(
@@ -121,7 +135,8 @@ async def fail(conn: psycopg.AsyncConnection, job: Job, error: str, *, retry: bo
         return "done"
 
 
-async def _requeue(conn: psycopg.AsyncConnection, job: Job, error: str, exhausted: bool, delay: float) -> str:
+async def _requeue(conn: psycopg.AsyncConnection, job: Job, error: str, exhausted: bool, delay: float,
+                   refund: bool = False) -> str:
     cur = await conn.execute(
         """
         UPDATE jobs SET
@@ -130,12 +145,13 @@ async def _requeue(conn: psycopg.AsyncConnection, job: Job, error: str, exhauste
                              SELECT 1 FROM jobs q WHERE q.state = 'queued' AND q.dedupe_key = jobs.dedupe_key) THEN 'done'
                          ELSE 'queued' END,
             run_at = now() + %(delay)s * interval '1 second',
+            attempts = attempts - %(refund)s::int,
             finished_at = now(),  -- only read for done/failed jobs (pruning)
             last_error = %(error)s, locked_by = NULL, locked_until = NULL
         WHERE id = %(id)s AND locked_by = %(me)s
         RETURNING state
         """,
-        {"exhausted": exhausted, "delay": delay, "error": error[:2000], "id": job.id, "me": job.lease},
+        {"exhausted": exhausted, "delay": delay, "error": error[:2000], "id": job.id, "me": job.lease, "refund": refund},
     )
     row = await cur.fetchone()
     return row[0] if row else "lost"

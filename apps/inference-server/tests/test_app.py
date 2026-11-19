@@ -35,3 +35,14 @@ def test_invalid_requests_are_rejected(monkeypatch):
 
 def test_health(monkeypatch):
     assert client(monkeypatch).get("/health").json() == {"ok": True}
+
+
+def test_a_rate_limit_is_a_429_with_retry_after(monkeypatch):
+    from sharepoint_rag.embeddings import RateLimited
+
+    async def embed(model, texts, task, dimensions):
+        raise RateLimited("Gemini 429: quota", retry_after=4.2)
+
+    monkeypatch.setattr(server.models, "embed", embed)
+    res = client(monkeypatch).post("/embed", json={"model": "m", "texts": ["x"], "task": "document", "dimensions": 2})
+    assert res.status_code == 429 and res.headers["Retry-After"] == "5"

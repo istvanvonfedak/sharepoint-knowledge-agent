@@ -8,10 +8,12 @@ authenticate with INFERENCE_API_KEY.
 """
 import hmac
 import logging
+import math
 import os
 
 from pydantic import BaseModel, Field
 from sharepoint_rag import models
+from sharepoint_rag.embeddings import RateLimited
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -61,6 +63,9 @@ async def embed(request: Request) -> JSONResponse:
         vectors = await models.embed(body.model, body.texts, body.task, body.dimensions)
     except ValueError as e:
         return JSONResponse({"error": str(e)}, 400)
+    except RateLimited as e:  # the quota, not the request: tell the caller when to come back
+        log.warning("embed rate limited; retry in %.0fs", e.retry_after)
+        return JSONResponse({"error": str(e)[:500]}, 429, headers={"Retry-After": str(math.ceil(e.retry_after))})
     except Exception as e:
         log.exception("embed failed")
         return JSONResponse({"error": f"{type(e).__name__}: {e}"[:500]}, 502)

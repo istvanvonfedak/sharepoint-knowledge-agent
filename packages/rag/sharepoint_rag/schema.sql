@@ -146,6 +146,20 @@ CREATE TABLE IF NOT EXISTS oauth_pending (
     created_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- Vectors embedded by a job that has not written its file yet (index_item, backfill_generation), so a retry
+-- after a rate limit, crash or lost lease starts where the last attempt stopped. Per file, so one job finishing
+-- never clears another's progress; rows go when the file's chunks are written (they hold the vectors from then on),
+-- when the file or generation is deleted, or a day after a job last read them (index_store.prune_embedding_progress).
+CREATE TABLE IF NOT EXISTS embedding_progress (
+    generation_id int NOT NULL REFERENCES index_generations (id) ON DELETE CASCADE,
+    source_id     bigint NOT NULL REFERENCES sources (id) ON DELETE CASCADE,
+    digest        bytea NOT NULL,
+    embedding     vector NOT NULL,
+    used_at       timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (generation_id, source_id, digest)
+);
+CREATE INDEX IF NOT EXISTS embedding_progress_used_idx ON embedding_progress (used_at);
+
 -- Per-user MSAL token cache (holds Entra refresh tokens), encrypted with a key kept outside the database.
 CREATE TABLE IF NOT EXISTS msal_cache (
     user_id    text PRIMARY KEY,

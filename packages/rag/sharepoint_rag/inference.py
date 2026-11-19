@@ -2,6 +2,7 @@
 import httpx
 
 from . import config, models
+from .embeddings import RateLimited, retry_delay
 from .models import Task
 
 
@@ -9,6 +10,8 @@ async def _call(path: str, body: dict) -> dict:
     headers = {"Authorization": f"Bearer {config.INFERENCE_API_KEY}"} if config.INFERENCE_API_KEY else {}
     async with httpx.AsyncClient(timeout=300) as client:
         res = await client.post(f"{config.INFERENCE_URL}{path}", json=body, headers=headers)
+    if res.status_code == 429:
+        raise RateLimited(f"inference-server {path} 429: {res.text[:300]}", retry_after=retry_delay(res) or 60.0)
     if res.is_error:
         raise RuntimeError(f"inference-server {path} {res.status_code}: {res.text[:300]}")
     return res.json()
