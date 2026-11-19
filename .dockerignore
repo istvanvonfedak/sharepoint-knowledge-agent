@@ -9,3 +9,5 @@
 evals
 logs
 secrets/
+data/
+scripts/

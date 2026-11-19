@@ -226,3 +226,6 @@ logs/
 
 # Certificates and keys (see docs/setup.md)
 secrets/
+
+# Public eval datasets, built by scripts/build_eval_data.py (licenses and personal data: not committed)
+/data/

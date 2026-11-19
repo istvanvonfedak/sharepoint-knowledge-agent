@@ -1,0 +1,17 @@
+{
+  "_comment": "Who may read each golden document: the expected visibility the seeder sets up in the test tenant, and the permission lists a local run indexes. The longest matching prefix wins. Unresolved files keep their true principals (the live check's answer) but are indexed as unresolved, like a file shared through a SharePoint site group.",
+  "personas": {
+    "alice": {"user": "alice", "groups": [], "is_member": true},
+    "hr": {"user": "hana", "groups": ["hr"], "is_member": true},
+    "exec": {"user": "eve", "groups": ["execs"], "is_member": true},
+    "outsider": {"user": "oscar", "groups": [], "is_member": true},
+    "guest": {"user": "gina", "groups": ["hr"], "is_member": false}
+  },
+  "paths": {
+    "eval-public/": ["org:members"],
+    "eval-restricted/HR/": ["group:hr"],
+    "eval-restricted/Board/": ["group:execs"],
+    "eval-restricted/Shared/project-heron-brief.md": ["user:alice"]
+  },
+  "unresolved": ["eval-restricted/HR/reorg-plan.md"]
+}

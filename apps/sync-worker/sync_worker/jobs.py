@@ -21,11 +21,11 @@ from datetime import datetime, timezone
 from pathlib import PurePosixPath
 
 from psycopg_pool import AsyncConnectionPool
-from sharepoint_rag import generations, index_store, inference, language, queue
+from sharepoint_rag import generations, index_store, inference, queue
 from sharepoint_rag.acl import AclRead
-from sharepoint_rag.chunk import Chunk, chunk_sections
-from sharepoint_rag.extract import EXTENSIONS, ExtractionError, extract
-from sharepoint_rag.index_store import ChunkRow, Item
+from sharepoint_rag.chunk import Chunk
+from sharepoint_rag.extract import EXTENSIONS, ExtractionError
+from sharepoint_rag.index_store import Item
 
 from . import config, permissions
 from .directory import Directory
@@ -170,8 +170,9 @@ async def purge_drive(ctx: Context, payload: dict) -> None:
 
 async def crawl_drive(ctx: Context, payload: dict) -> None:
     """Follows Graph delta for one drive. Each page is applied in one transaction together with the link to
-    the next page, so a crash re-reads at most one page. A full crawl (first run, or after the cursor expired)
-    stamps every file it sees; when it reaches the last page, files without the stamp are deleted."""
+    the next page, so a crash re-reads at most one page. A full crawl (first run, after the cursor expired, or
+    when the last one ran under an older index_store.INDEX_VERSION) stamps every file it sees; when it reaches the
+    last page, files without the stamp are deleted."""
     drive_id = payload["drive_id"]
     async with ctx.pool.connection() as conn:
         drive = await (await conn.execute(
@@ -181,16 +182,16 @@ async def crawl_drive(ctx: Context, payload: dict) -> None:
         if drive is None:
             return
         state = await (await conn.execute(
-            "SELECT delta_link, next_link, crawl_id FROM sync_state WHERE drive_id = %s", (drive_id,)
+            "SELECT delta_link, next_link, crawl_id, index_version FROM sync_state WHERE drive_id = %s", (drive_id,)
         )).fetchone()
     site_id = drive[0]
-    delta_link, next_link, crawl_id = state or (None, None, None)
+    delta_link, next_link, crawl_id, version = state or (None, None, None, None)
     initial = f"/drives/{seg(drive_id)}/root/delta?$select={ITEM_SELECT}"
     if next_link:
         url = next_link
-    elif delta_link:
+    elif delta_link and version == index_store.INDEX_VERSION:
         url = delta_link
-    else:
+    else:  # delta only reports changed files: files indexed by an older INDEX_VERSION need a full crawl
         url, crawl_id = initial, await _start_full_crawl(ctx, drive_id)
 
     while True:
@@ -278,11 +279,6 @@ async def _site_url(ctx: Context, drive_id: str) -> str:
     return row[0] if row else ""
 
 
-def _extract_chunks(name: str, data: bytes) -> list[ChunkRow]:
-    chunks = [c for c in chunk_sections(extract(name, data)) if c.text.strip()]
-    return [ChunkRow(n, c.text, c.heading_path or None, language.detect(c.text)) for n, c in enumerate(chunks)]
-
-
 async def index_item(ctx: Context, payload: dict) -> None:
     drive_id, item_id = payload["drive_id"], payload["item_id"]
     async with ctx.pool.connection() as conn:
@@ -324,7 +320,7 @@ async def index_item(ctx: Context, payload: dict) -> None:
     try:
         acl_read = await _read_acl(ctx, drive[1], drive_id, item_id)  # before the download: see "Newest permissions win"
         data = await ctx.graph.download(drive_id, item_id, config.MAX_FILE_BYTES)
-        chunks = await asyncio.to_thread(_extract_chunks, item.name, data)
+        chunks = await asyncio.to_thread(index_store.chunk_rows, item.name, data)
         del data  # no file copies are kept
         vectors = {}
         texts = [Chunk(c.heading_path or "", c.text).embedding_text for c in chunks]

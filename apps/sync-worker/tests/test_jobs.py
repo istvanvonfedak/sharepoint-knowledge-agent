@@ -157,6 +157,28 @@ async def test_unchanged_files_are_not_requeued(ctx):
     assert await rows(ctx, "SELECT count(*) FROM jobs WHERE state = 'queued'") == [(0,)]
 
 
+async def test_a_new_index_version_reindexes_unchanged_files(ctx):
+    """Bumping index_store.INDEX_VERSION (chunking changed) must reach files nobody edits: delta reports none of
+    them, so the next sync is a full crawl and every file indexed by the older version is queued again."""
+    g = ctx.graph
+    g.items, g.perms, g.content = {"a": raw("a")}, {"a": []}, {"a": b"text"}
+    g.delta_pages = [{"value": [raw("a")], "@odata.deltaLink": "delta:1"}]
+    await jobs.crawl_drive(ctx, {"drive_id": "d1"})
+    await run_queued(ctx)
+    assert await rows(ctx, "SELECT index_version FROM sources") == [(index_store.INDEX_VERSION,)]
+    assert await rows(ctx, "SELECT index_version FROM sync_state") == [(index_store.INDEX_VERSION,)]
+
+    async with ctx.pool.connection() as conn:  # as if indexed and crawled by the previous version
+        await conn.execute("UPDATE sources SET index_version = %s", (index_store.INDEX_VERSION - 1,))
+        await conn.execute("UPDATE sync_state SET index_version = %s", (index_store.INDEX_VERSION - 1,))
+    g.calls.clear()
+    await jobs.crawl_drive(ctx, {"drive_id": "d1"})
+    assert not any(c.startswith("delta:") for c in g.calls)  # a full crawl, not the saved delta link
+    assert await run_queued(ctx) != []
+    assert await rows(ctx, "SELECT index_version FROM sources") == [(index_store.INDEX_VERSION,)]
+    assert await rows(ctx, "SELECT index_version FROM sync_state") == [(index_store.INDEX_VERSION,)]
+
+
 async def test_expired_cursor_recrawls_and_deletes_files_missed_in_the_gap(ctx):
     g = ctx.graph
     g.items = {"a": raw("a"), "b": raw("b")}

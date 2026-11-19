@@ -280,11 +280,11 @@ class Loop:
         return _plain(str(args.get("answer") or ""), allowed), result, bool(args.get("found"))
 
     def partial(self) -> list[dict]:
-        """What was found so far, for a run that ran out of budget."""
-        return [
-            {"title": s.title, "link": s.link, "quote": (s.texts[0][:300] if s.texts else "")}
-            for s in self.sources.values() if not s.is_folder and s.texts
-        ][:10]
+        """What was found so far, for a run that ran out of budget. The quotes are raw document text, so they get
+        the same link stripping as an answer: a planted link must not reach the client this way either."""
+        found = [s for s in self.sources.values() if not s.is_folder and s.texts][:10]
+        allowed = {s.link for s in found if s.link}
+        return [{"title": s.title, "link": s.link, "quote": _plain(s.texts[0][:300], allowed)} for s in found]
 
 
 class AskState(TypedDict):

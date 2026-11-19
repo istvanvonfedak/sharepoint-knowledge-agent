@@ -13,16 +13,15 @@ from xml.sax.saxutils import escape
 
 from inspect_ai import Task, task
 from inspect_ai.dataset import MemoryDataset, Sample
-from inspect_ai.model import ModelOutput
 from inspect_ai.scorer import CORRECT, INCORRECT, Score, Target, accuracy, scorer
 from inspect_ai.solver import Generate, TaskState, solver
 from sharepoint_rag.chunk import MAX_CHARS, chunk_sections
 from sharepoint_rag.extract import extract
 
+from sharepoint_evals.common import MOCK, set_output
+from sharepoint_evals.corpus import synthetic
 from sharepoint_evals.dataset import DOCS, EVERYONE
-from sharepoint_evals.retrieval import ranked_docs, retrieve
-
-MOCK = "mockllm/model"
+from sharepoint_evals.retrieval import SimulatedOutage, allow, ranked_docs, retrieve
 
 KEY_FACTS = {
     "leave-policy.md": ["22 working days", "carried over", "HR portal", "medical certificate"],
@@ -82,7 +81,7 @@ def extract_and_chunk():
         chunks = chunk_sections(sections)
         state.metadata["chunk_texts"] = [c.text for c in chunks]
         state.metadata["heading_paths"] = sorted({c.heading_path for c in chunks if c.heading_path})
-        state.output = ModelOutput.from_content(MOCK, f"{len(chunks)} chunks")
+        set_output(state, f"{len(chunks)} chunks")
         return state
 
     return solve
@@ -149,9 +148,10 @@ ACL_CASES = [
 def acl_probe():
     async def solve(state: TaskState, generate: Generate) -> TaskState:
         m = state.metadata
-        hits = await retrieve(state.input_text, m["persona"], m["mode"], k=20)
+        corpus = synthetic()
+        hits = await retrieve(corpus, state.input_text, corpus.personas[m["persona"]], m["mode"], k=20)
         state.metadata["returned"] = ranked_docs(hits)
-        state.output = ModelOutput.from_content(MOCK, ", ".join(state.metadata["returned"]))
+        set_output(state, ", ".join(state.metadata["returned"]))
         return state
 
     return solve
@@ -201,26 +201,20 @@ VERIFY_CASES = [
 ]
 
 
-def _verifier(revoked: list[str], raises: bool = False):
-    # store.py indexes each doc with item_id == its file name, so `revoked` holds file names.
-    async def verify(items):
-        if raises:
-            raise RuntimeError("simulated Graph outage")
-        return {(drive, item) for drive, item in items if item not in revoked}
-
-    return verify
-
-
 @solver
 def verified_probe():
     async def solve(state: TaskState, generate: Generate) -> TaskState:
         m = state.metadata
+        corpus = synthetic()
+        # store.py indexes each doc with item_id == its name, so `revoked` holds file names.
+        readable = {d.name for d in DOCS} - set(m["revoked"])
         try:
-            hits = await retrieve(state.input_text, m["persona"], m["mode"], k=5, verify=_verifier(m["revoked"], m["verifier_raises"]))
+            hits = await retrieve(corpus, state.input_text, corpus.personas[m["persona"]], m["mode"], k=5,
+                                  verify=allow(readable, raises=m["verifier_raises"]))
             state.metadata["returned"], state.metadata["error"] = ranked_docs(hits), False
-        except Exception:  # any verifier failure (outage, 401, timeout) must fail closed
+        except SimulatedOutage:  # the live check failed: the search must fail closed (any other error is a bug)
             state.metadata["returned"], state.metadata["error"] = [], True
-        state.output = ModelOutput.from_content(MOCK, ", ".join(state.metadata["returned"]))
+        set_output(state, ", ".join(state.metadata["returned"]))
         return state
 
     return solve

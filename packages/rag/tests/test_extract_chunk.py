@@ -123,3 +123,11 @@ def test_chunk_oversized_word_and_bad_overlap():
     assert [len(c.text) for c in chunks] == [500, 500, 300]  # pieces overlap by 50 chars inside the split; no second tail is added
     with pytest.raises(ValueError):
         chunk_sections([], max_chars=100, overlap=100)
+
+
+def test_chunk_rows_start_every_heading_with_the_document_title():
+    from sharepoint_rag.index_store import chunk_rows
+
+    rows = chunk_rows("Ulta Beauty 10-K 2023.md", b"# Results\n\nRevenue grew.\n")
+    assert [r.heading_path for r in rows] == ["Ulta Beauty 10-K 2023 > Results"]
+    assert chunk_rows("notes.md", b"no heading here", title="")[0].heading_path is None

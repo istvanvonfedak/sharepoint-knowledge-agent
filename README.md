@@ -6,6 +6,7 @@ SharePoint Q&A agent with a built-in MCP server. Entra ID delegated auth means u
 - [Setup](docs/setup.md): configure Entra ID, run the MCP server (Docker or local) and connect a client.
 - [Microsoft tenant setup](docs/microsoft-tenant-setup.md): step-by-step walkthrough from a new Azure/Microsoft 365 tenant and Entra app registration to a validated working server.
 - [MCP OAuth sign-in](docs/oauth.md): how the sign-in flow works, and its limits.
+- [Evals](docs/evals.md): what we measure (permissions, freshness, retrieval, extraction, answers, agent safety, performance), the datasets, and the local and live test tiers.
 
 ## Infrastructure
 ```mermaid

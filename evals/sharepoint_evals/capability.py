@@ -2,22 +2,23 @@
 (not pass/fail), tracked over time and compared across search modes and embedding/chunking changes."""
 from inspect_ai import Task, task
 from inspect_ai.dataset import MemoryDataset, Sample
-from inspect_ai.model import ModelOutput
 from inspect_ai.scorer import Score, Target, mean, scorer
 from inspect_ai.solver import Generate, TaskState, solver
 
+from sharepoint_evals.common import MOCK, ranking, set_output
+from sharepoint_evals.corpus import synthetic
 from sharepoint_evals.questions import QUESTIONS
 from sharepoint_evals.retrieval import ranked_docs, retrieve
 
-MOCK = "mockllm/model"
 
 
 @solver
 def retrieve_docs(mode: str):
     async def solve(state: TaskState, generate: Generate) -> TaskState:
-        hits = await retrieve(state.input_text, state.metadata["persona"], mode, k=20)
+        corpus = synthetic()
+        hits = await retrieve(corpus, state.input_text, corpus.personas[state.metadata["persona"]], mode, k=20)
         state.metadata["returned"] = ranked_docs(hits)
-        state.output = ModelOutput.from_content(MOCK, ", ".join(state.metadata["returned"]))
+        set_output(state, ", ".join(state.metadata["returned"]))
         return state
 
     return solve
@@ -27,14 +28,10 @@ def retrieve_docs(mode: str):
 def rank_of_expected():
     async def score(state: TaskState, target: Target) -> Score:
         returned = state.metadata["returned"]
+        scores = ranking(returned, [target.text], ks=(1, 3, 5))
         rank = returned.index(target.text) + 1 if target.text in returned else None
         return Score(
-            value={
-                "hit@1": float(rank == 1),
-                "hit@3": float(rank is not None and rank <= 3),
-                "hit@5": float(rank is not None and rank <= 5),
-                "mrr": 1.0 / rank if rank else 0.0,
-            },
+            value={k: scores[k] for k in ("hit@1", "hit@3", "hit@5", "mrr")},
             answer=returned[0] if returned else "",
             explanation=f"expected {target.text} at rank {rank}; got {returned[:5]}",
         )

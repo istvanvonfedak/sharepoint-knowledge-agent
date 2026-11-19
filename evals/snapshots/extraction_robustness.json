@@ -1,0 +1,1992 @@
+{
+ "cc-pdf/0000004.pdf": {
+  "sha256": "00000effdbf31ea44650231c02ad03c4761c91a2254d0f41cea2fe22c4da0504",
+  "outcome": "chunks",
+  "chunks": 2
+ },
+ "cc-pdf/0000006.pdf": {
+  "sha256": "000014ed4ed93936679f0e1a83ea1eb4856fd6f60391c39262c1a9c5b7ce2cd4",
+  "outcome": "chunks",
+  "chunks": 23
+ },
+ "cc-pdf/0000016.pdf": {
+  "sha256": "00002bfc74a08fa82de8c2f3f0953023a482526f7b5b02f64359ca091e0de039",
+  "outcome": "chunks",
+  "chunks": 6
+ },
+ "cc-pdf/0000038.pdf": {
+  "sha256": "0000598339488ea365e6f4ce193ffc97c25c01c672a68adca29ce70b84ac57a8",
+  "outcome": "chunks",
+  "chunks": 6
+ },
+ "cc-pdf/0000058.pdf": {
+  "sha256": "00008af67a45747cf43af9cf51553ae49f40a2108feccd11efe4f48cdba33dc5",
+  "outcome": "no_text"
+ },
+ "cc-pdf/0000075.pdf": {
+  "sha256": "0000a2e69c7ca848b27a85f4d30b0f1c289b9a14586a1150b6f6b971f4ac79e9",
+  "outcome": "chunks",
+  "chunks": 2
+ },
+ "cc-pdf/0000095.pdf": {
+  "sha256": "0000cafbda56fa937ec83b1cd9aa480b5064c191ae65ed447d3809a141723309",
+  "outcome": "no_text"
+ },
+ "cc-pdf/0000097.pdf": {
+  "sha256": "0000cc29ffd8f7cf5a23b06dd613bd467676086ce812534c5b3ee6b6b9e08e5f",
+  "outcome": "chunks",
+  "chunks": 5
+ },
+ "cc-pdf/0000102.pdf": {
+  "sha256": "0000da7e69f3cb9ef3c06b356ddbc211bf8aafa1af79cb2135e12c6d0ab49642",
+  "outcome": "chunks",
+  "chunks": 6
+ },
+ "cc-pdf/0000146.pdf": {
+  "sha256": "000139050fa250665939502c8bd4bb0598ee760ffefb6fa7545545c51d8f605d",
+  "outcome": "chunks",
+  "chunks": 6
+ },
+ "cc-pdf/0000151.pdf": {
+  "sha256": "00013f27a1b2e4e06e3ff8bcdf1719163938fe992162575551cc8cd337b71ee7",
+  "outcome": "chunks",
+  "chunks": 10
+ },
+ "cc-pdf/0000160.pdf": {
+  "sha256": "00014e6a721a2ec07b204709f260210f826f216ba833ff204b0b3d335e113610",
+  "outcome": "chunks",
+  "chunks": 10
+ },
+ "cc-pdf/0000166.pdf": {
+  "sha256": "00015b72c00f586cc5b7f4ea0e037f16915b9791cd9819e06c2e376b713b9eea",
+  "outcome": "chunks",
+  "chunks": 3
+ },
+ "cc-pdf/0000171.pdf": {
+  "sha256": "000164f73c44639e7b8278f4cf4537bd6cdb7571b3cf4f41ce31a64802a829b9",
+  "outcome": "chunks",
+  "chunks": 11
+ },
+ "cc-pdf/0000172.pdf": {
+  "sha256": "0001654310f843b9d38e6320745adc5765be8d0a42adedc1345da15eb1f3c06e",
+  "outcome": "chunks",
+  "chunks": 22
+ },
+ "cc-pdf/0000177.pdf": {
+  "sha256": "00016ef39e3f04d7788181f505c96a64ace6da5fd7df49fdcd19547b085c305b",
+  "outcome": "chunks",
+  "chunks": 25
+ },
+ "cc-pdf/0000202.pdf": {
+  "sha256": "00019300b2d441795efe3d552f369050f65fd1307d4e3c81e7322a066d01ea67",
+  "outcome": "no_text"
+ },
+ "cc-pdf/0000204.pdf": {
+  "sha256": "000196a5e048f0c360214521b3651664c189cfc83a25db171a80439f2ebec7df",
+  "outcome": "chunks",
+  "chunks": 5
+ },
+ "cc-pdf/0000209.pdf": {
+  "sha256": "00019f4d5d10ca7e22ee40df13d88a9761b9342465e54350c7b23b2be2f00751",
+  "outcome": "no_text"
+ },
+ "cc-pdf/0000226.pdf": {
+  "sha256": "0001b83734d8aec6a0817c0ba1e60a97055649195aad938dcba785c0054ea5a0",
+  "outcome": "chunks",
+  "chunks": 5
+ },
+ "cc-pdf/0000232.pdf": {
+  "sha256": "0001c2f69bdfddbe22715d6b12e008ab024612113d4f900e64b5c39e63b60a83",
+  "outcome": "chunks",
+  "chunks": 1
+ },
+ "cc-pdf/0000250.pdf": {
+  "sha256": "0001ddd7204fc4bebb8ae9b96df4a5c17eebb446a5c16c749b8d8e716ec8fd0d",
+  "outcome": "chunks",
+  "chunks": 1
+ },
+ "cc-pdf/0000252.pdf": {
+  "sha256": "0001df49b73fbf48e0369957236d842f9aebbabce99c06ae029faf8bb4530da4",
+  "outcome": "chunks",
+  "chunks": 36
+ },
+ "cc-pdf/0000259.pdf": {
+  "sha256": "0001f29d363229b3186e0e02c1ef2f90c4ce5f30ac6aa7276ee7dc7f1eb722eb",
+  "outcome": "chunks",
+  "chunks": 12
+ },
+ "cc-pdf/0000262.pdf": {
+  "sha256": "0001f54ee32953654b4732a0fe205f17bd397581595fcc1ea3045b5831713502",
+  "outcome": "no_text"
+ },
+ "cc-pdf/0000270.pdf": {
+  "sha256": "0002012e9d7280d17be3981fc320d844421b9b3d1479af8d7205fc9d28266060",
+  "outcome": "no_text"
+ },
+ "cc-pdf/0000271.pdf": {
+  "sha256": "0002046f04eb959ebda5dd8608393d1df7ee27facee11c4a00825e93074cb18a",
+  "outcome": "chunks",
+  "chunks": 1
+ },
+ "cc-pdf/0000275.pdf": {
+  "sha256": "000212aa760c165f4827e0506c9443df741f36f2087b11d8b78049209badb83a",
+  "outcome": "chunks",
+  "chunks": 15
+ },
+ "cc-pdf/0000287.pdf": {
+  "sha256": "00023538c6fbbb8a0c9e80fcb69a5e250006964c8eeb1df40fd077f120ab2c3b",
+  "outcome": "chunks",
+  "chunks": 2
+ },
+ "cc-pdf/0000292.pdf": {
+  "sha256": "00023ae8e06940a1505c8ce05e6b61adebb30fe69935f07f9251351e4b0cb6b0",
+  "outcome": "chunks",
+  "chunks": 5
+ },
+ "cc-pdf/0000299.pdf": {
+  "sha256": "00024dc53e18e2fe6b5e3de277e57ecd20e69e7f6838633fa63c9cf52d1e347c",
+  "outcome": "chunks",
+  "chunks": 3
+ },
+ "cc-pdf/0000338.pdf": {
+  "sha256": "0002a0a756d81e036e2fb3713661a9076475cd36c5e859c91aef625cedda8972",
+  "outcome": "chunks",
+  "chunks": 10
+ },
+ "cc-pdf/0000347.pdf": {
+  "sha256": "0002b0c9516fe05bfe6fdfd65898f37e473e1999f0c0237ec5e5dbacb8a8f6da",
+  "outcome": "chunks",
+  "chunks": 23
+ },
+ "cc-pdf/0000366.pdf": {
+  "sha256": "0002d28123690bcd44cc154b80a0527a319733cc1532e6e80bc76d501788db2f",
+  "outcome": "chunks",
+  "chunks": 4
+ },
+ "cc-pdf/0000391.pdf": {
+  "sha256": "00030a6340da871dcaffacf0063462c2dd2e32a9b6e3948a086a2499744c7e8f",
+  "outcome": "chunks",
+  "chunks": 3
+ },
+ "cc-pdf/0000392.pdf": {
+  "sha256": "00030e3e8e4189c035f0d4dc6f3016c418936ad775738bf8b9df82da94c980d8",
+  "outcome": "chunks",
+  "chunks": 2
+ },
+ "cc-pdf/0000393.pdf": {
+  "sha256": "000314e320b3e65b45a70721e1e8f458c4af182fc05c83e582c3737b3041f4a5",
+  "outcome": "chunks",
+  "chunks": 8
+ },
+ "cc-pdf/0000398.pdf": {
+  "sha256": "0003277b7296a287e78c4c81ceb201eb6131c9f981716d1d3b2e89e1ad1a397c",
+  "outcome": "no_text"
+ },
+ "cc-pdf/0000405.pdf": {
+  "sha256": "0003414e5e6fe6042994ef232013025a5087e21cc3b38d5ce947e259b6d4f08f",
+  "outcome": "chunks",
+  "chunks": 15
+ },
+ "cc-pdf/0000411.pdf": {
+  "sha256": "00034b16f93eacb9f10bcfe8a230854bcf770974de1527fb69a843b945cb723b",
+  "outcome": "chunks",
+  "chunks": 1
+ },
+ "cc-pdf/0000418.pdf": {
+  "sha256": "00035161ce0643af8e416607fb96a5e47eb1309072ad0a67524d3cad69047e66",
+  "outcome": "chunks",
+  "chunks": 2
+ },
+ "cc-pdf/0000419.pdf": {
+  "sha256": "00035c82fc02cd3aa556433888c2bf1ea70b553264daa83c21e3b9789cbd3aeb",
+  "outcome": "chunks",
+  "chunks": 8
+ },
+ "cc-pdf/0000431.pdf": {
+  "sha256": "00036d3a3d2275480268b5da56d2356bffe89d478e0fad81c7dac12ccd3fb58a",
+  "outcome": "chunks",
+  "chunks": 13
+ },
+ "cc-pdf/0000437.pdf": {
+  "sha256": "000373713d78e1bfdeb0183a2cedede61ef37f095071769dc79babcd60ed4471",
+  "outcome": "chunks",
+  "chunks": 4
+ },
+ "cc-pdf/0000440.pdf": {
+  "sha256": "000379e1993776eadcc1c7dfc18c423a33527fb4191ab3020c3b825b03498f17",
+  "outcome": "chunks",
+  "chunks": 25
+ },
+ "cc-pdf/0000451.pdf": {
+  "sha256": "000385bf9dff48db1be61b32ba64391cc6a66f2b4596e8a829d75c84333591b2",
+  "outcome": "chunks",
+  "chunks": 14
+ },
+ "cc-pdf/0000459.pdf": {
+  "sha256": "0003923123c872ed0db93a0da8fc6bdb4405cd6fc39d8d9e7432a2eed36cad00",
+  "outcome": "chunks",
+  "chunks": 65
+ },
+ "cc-pdf/0000460.pdf": {
+  "sha256": "00039423751ab7ab74a766438e811ab475b02a0560e82e21bb6ac1dd3e8bbb00",
+  "outcome": "no_text"
+ },
+ "cc-pdf/0000464.pdf": {
+  "sha256": "00039f09dd61433916460ef2e6a79106de2d691b5d7df8895b43061d0141fec3",
+  "outcome": "chunks",
+  "chunks": 1
+ },
+ "cc-pdf/0000465.pdf": {
+  "sha256": "00039fd2d440f5bde73ca3bb7259d0438baa867dcf4218128914620e54f97c0f",
+  "outcome": "chunks",
+  "chunks": 3
+ },
+ "cc-pdf/0000473.pdf": {
+  "sha256": "0003b03961fbef281c2fe6c427dcb113bcb02966c7d4c9ad54690541269d4e81",
+  "outcome": "chunks",
+  "chunks": 15
+ },
+ "cc-pdf/0000481.pdf": {
+  "sha256": "0003bf29c615d721c25f236cc77a47f89e2710f13f99a135252f7e34b24fa215",
+  "outcome": "chunks",
+  "chunks": 92
+ },
+ "cc-pdf/0000492.pdf": {
+  "sha256": "0003d46d6d0ea09cabf5af5df4bcd1e1fd7369a47165a1f24334bc5d8904a416",
+  "outcome": "chunks",
+  "chunks": 12
+ },
+ "cc-pdf/0000507.pdf": {
+  "sha256": "0003f00468183eee5fe7f108c15aa8cb749713e6ae85899e115e7bddbd9d6e7d",
+  "outcome": "chunks",
+  "chunks": 9
+ },
+ "cc-pdf/0000520.pdf": {
+  "sha256": "0004170c6e1ac54b93a722e93740bdbde80f9cb01991eb2f043733bb6a16fe9d",
+  "outcome": "chunks",
+  "chunks": 81
+ },
+ "cc-pdf/0000534.pdf": {
+  "sha256": "0004319821646aa25257ad9425042004fac77d4a78446dbd7ab3da770e28d64c",
+  "outcome": "chunks",
+  "chunks": 9
+ },
+ "cc-pdf/0000547.pdf": {
+  "sha256": "0004504501e4ce0791c2007b5ff7b4ac00ae3554dc058857b59c951345d355ab",
+  "outcome": "chunks",
+  "chunks": 7
+ },
+ "cc-pdf/0000562.pdf": {
+  "sha256": "00046f9d0390386ab004a0ff45b63910f877e6c697f41cccafba9cf3e92a9eb7",
+  "outcome": "chunks",
+  "chunks": 10
+ },
+ "cc-pdf/0000567.pdf": {
+  "sha256": "000475eb7bc0a71d564d8fb71095a3d3b1192fceea8804138cd91bb270c9800d",
+  "outcome": "chunks",
+  "chunks": 22
+ },
+ "cc-pdf/0000577.pdf": {
+  "sha256": "0004835c66986235d3c93c3e83f1e58f6c9f04d0a1341afbc861509c45518790",
+  "outcome": "no_text"
+ },
+ "cc-pdf/0000582.pdf": {
+  "sha256": "00048e6c99cedd70d7d3c1d529f712f8813f3db4f9357d11252443ddcda59f54",
+  "outcome": "chunks",
+  "chunks": 2
+ },
+ "cc-pdf/0000586.pdf": {
+  "sha256": "0004950c03892a1d17ad162bbb138557b2688b0d4a4c07b290da9f15299668ce",
+  "outcome": "chunks",
+  "chunks": 11
+ },
+ "cc-pdf/0000596.pdf": {
+  "sha256": "0004a4c0c620e6b010ce268411a670d812c424d24abacd532316401c784a1e57",
+  "outcome": "chunks",
+  "chunks": 9
+ },
+ "cc-pdf/0000640.pdf": {
+  "sha256": "00050313f2d707b10cd1494ce80c577522747d5907aef1264549d4a99f6ff384",
+  "outcome": "chunks",
+  "chunks": 4
+ },
+ "cc-pdf/0000660.pdf": {
+  "sha256": "00051bf38762c8f22bff628c39ab0b3116b168a346c0ce42dda755b4d4c86ebd",
+  "outcome": "chunks",
+  "chunks": 4
+ },
+ "cc-pdf/0000662.pdf": {
+  "sha256": "00051e97ed95dc3ad7681d194131474cf178eced3d64cd0e876f53e1eb2c711f",
+  "outcome": "chunks",
+  "chunks": 7
+ },
+ "cc-pdf/0000673.pdf": {
+  "sha256": "00053b5b889f2be89d2294e90d7ce3cfea6a7e6af925e48b7564446a64f8f4d8",
+  "outcome": "chunks",
+  "chunks": 2
+ },
+ "cc-pdf/0000676.pdf": {
+  "sha256": "000546368ed8a977adb4e58ee73d53957d9a9c95a3648089ad06773f71768a2c",
+  "outcome": "chunks",
+  "chunks": 1
+ },
+ "cc-pdf/0000678.pdf": {
+  "sha256": "000549bf5a35323f8bc4c4f98f2718cba06501b2ff340aab7d896620e3af0677",
+  "outcome": "chunks",
+  "chunks": 32
+ },
+ "cc-pdf/0000700.pdf": {
+  "sha256": "0005747132c4327555542c52d9d615d50073a44a7defdf95e50153e58e3d6573",
+  "outcome": "chunks",
+  "chunks": 3
+ },
+ "cc-pdf/0000713.pdf": {
+  "sha256": "00058e85898b988bd72c9ffcb2427e4ce94bd6f6d8e279762a421411b81f5c43",
+  "outcome": "chunks",
+  "chunks": 13
+ },
+ "cc-pdf/0000716.pdf": {
+  "sha256": "00059ee099ac4143c7f30955624fc47511a05d5085a3a924837edf55f25987be",
+  "outcome": "chunks",
+  "chunks": 7
+ },
+ "cc-pdf/0000730.pdf": {
+  "sha256": "0005be2209fe8ce168bc18f01643a1543bc0d9893c87d476c2ba3d2e392284fe",
+  "outcome": "chunks",
+  "chunks": 2
+ },
+ "cc-pdf/0000734.pdf": {
+  "sha256": "0005c66a1dfabca8d657af3c9ff70e0787dc1eb331937036869e2d84e4441947",
+  "outcome": "chunks",
+  "chunks": 10
+ },
+ "cc-pdf/0000737.pdf": {
+  "sha256": "0005cea322687d3e71de185906408d24c68ab1bc8d6c64f2158b49aae88a407b",
+  "outcome": "chunks",
+  "chunks": 3
+ },
+ "cc-pdf/0000751.pdf": {
+  "sha256": "0005e0bfd0b5a4b4b5fa624a301a20037272c71df1a36c58e31f2379beeda1ce",
+  "outcome": "chunks",
+  "chunks": 45
+ },
+ "cc-pdf/0000772.pdf": {
+  "sha256": "00062168f9919c89747ffa311190907755d6dab078b35e3d2bdcc86f2222acee",
+  "outcome": "chunks",
+  "chunks": 2
+ },
+ "cc-pdf/0000775.pdf": {
+  "sha256": "000622c02b34db3bc175906577d8f086ab24fecc588e122d6cb6ebe3e043c14d",
+  "outcome": "chunks",
+  "chunks": 13
+ },
+ "cc-pdf/0000791.pdf": {
+  "sha256": "000641e236746832abd673466f6bd3a17f0f0272a3347926b36abab6ac1c989e",
+  "outcome": "chunks",
+  "chunks": 5
+ },
+ "cc-pdf/0000805.pdf": {
+  "sha256": "00065fd0c17f781b245b8a9b1b65cca9831a29a1d74e15873b6ac1d9a6e43174",
+  "outcome": "chunks",
+  "chunks": 13
+ },
+ "cc-pdf/0000830.pdf": {
+  "sha256": "00069b0d7d460c5b43d2d134b394a77b3a851e43444473014dad62dec9287308",
+  "outcome": "chunks",
+  "chunks": 1
+ },
+ "cc-pdf/0000837.pdf": {
+  "sha256": "0006aeae49a6d5b50acb462a99fb5efaee03151ac214c2514402015edba77baa",
+  "outcome": "chunks",
+  "chunks": 3
+ },
+ "cc-pdf/0000847.pdf": {
+  "sha256": "0006c206a04c58c14a0e1d3b73db993c57f6fd0df1debfae277fdcea34ec1e66",
+  "outcome": "chunks",
+  "chunks": 4
+ },
+ "cc-pdf/0000851.pdf": {
+  "sha256": "0006cfcac229fa95a91fb341ff0ca095f2551525b866dcf53f6b623d67df2d00",
+  "outcome": "chunks",
+  "chunks": 8
+ },
+ "cc-pdf/0000865.pdf": {
+  "sha256": "0006ef3b18390108df70baa43c6a6023c0cc9f62fdcacd66cd5836a24a1ea3d3",
+  "outcome": "chunks",
+  "chunks": 22
+ },
+ "cc-pdf/0000869.pdf": {
+  "sha256": "0006f82bb257f5769646dbddb8453d8ddb3583ece3345f707dba3d5d6e232607",
+  "outcome": "chunks",
+  "chunks": 2
+ },
+ "cc-pdf/0000893.pdf": {
+  "sha256": "000726ffeb9a21c2b90aea10c943d655258c00bca7d33abf4413b2455b78ec1f",
+  "outcome": "chunks",
+  "chunks": 12
+ },
+ "cc-pdf/0000895.pdf": {
+  "sha256": "00072828911ee5becdfa9caabbe0ef3dde6878cfa1c74c5ffde2110dda1e20ce",
+  "outcome": "chunks",
+  "chunks": 26
+ },
+ "cc-pdf/0000904.pdf": {
+  "sha256": "000739896ab71932de2eb7ce7d6a3efd3d69b63627d8ec63c31381b14fb0013d",
+  "outcome": "chunks",
+  "chunks": 3
+ },
+ "cc-pdf/0000914.pdf": {
+  "sha256": "00074d32b5505c010aa5c00e1514e7ee23ce10f4e26f46911c8183861fa0c9c4",
+  "outcome": "chunks",
+  "chunks": 6
+ },
+ "cc-pdf/0000916.pdf": {
+  "sha256": "00074f8cccd5655256a2bdc2c906155e72ee5c36bd11e3e7d623df42cd1dddf6",
+  "outcome": "chunks",
+  "chunks": 31
+ },
+ "cc-pdf/0000923.pdf": {
+  "sha256": "00076497a22fd1e7ae6225b2ba8142011cfa978a9de67a7f99575e33a0eabd56",
+  "outcome": "chunks",
+  "chunks": 13
+ },
+ "cc-pdf/0000924.pdf": {
+  "sha256": "0007651da4a89d066cc55103f89b285a7f824180a447eff27b6b5d3c2aa6ade1",
+  "outcome": "chunks",
+  "chunks": 6
+ },
+ "cc-pdf/0000939.pdf": {
+  "sha256": "00078b83a79af71b9faefafcd10e3c0db8b487c3d837f148c7ed0851d413f8da",
+  "outcome": "chunks",
+  "chunks": 6
+ },
+ "cc-pdf/0000943.pdf": {
+  "sha256": "000796f30f3377591f529fb9039732cdea44c90dd7fd1bb1da8c941ceae5d5f9",
+  "outcome": "ExtractionError",
+  "message": "LimitReachedError: Reached maximum number of tokens per stream."
+ },
+ "cc-pdf/0000944.pdf": {
+  "sha256": "00079ad4b165f32c8c18eaf683e405e35defdbb521cadb71d7a3596c0f8aa683",
+  "outcome": "chunks",
+  "chunks": 3
+ },
+ "cc-pdf/0000949.pdf": {
+  "sha256": "0007ae9def74ab97b7a20418814a8f25022c45890a66edadd82a10693a42cce9",
+  "outcome": "chunks",
+  "chunks": 9
+ },
+ "cc-pdf/0000967.pdf": {
+  "sha256": "0007da5fe2b0c0cc5df43013a2dd6b5c6e6244e298d940aa961d5f132e3fd6bc",
+  "outcome": "chunks",
+  "chunks": 7
+ },
+ "cc-pdf/0000988.pdf": {
+  "sha256": "000810a5a4f3aef3a0de68d6b462a49a8a4e0f9f691c0974b44cb72316a77503",
+  "outcome": "chunks",
+  "chunks": 29
+ },
+ "cc-pdf/0000994.pdf": {
+  "sha256": "00081b08deaa442bb971053764683abcf141f2a71977c18c84c5a372e12e3ed2",
+  "outcome": "chunks",
+  "chunks": 25
+ },
+ "govdocs1/000000.swf": {
+  "sha256": "1904c7304484a866bcca4f4fd1379dc89112e7d275a6ac1e99595405443608d7",
+  "outcome": "UnsupportedFileType",
+  "message": ".swf"
+ },
+ "govdocs1/000002.doc": {
+  "sha256": "0436a679c315f964a34a23d108f119bfb030859688571c5f486b5b5aff83bfa7",
+  "outcome": "UnsupportedFileType",
+  "message": ".doc"
+ },
+ "govdocs1/000014.html": {
+  "sha256": "a4d5ef75e726d0ca9db86bbfdcfc9330a33152d74a149f6a07a5895dab52a4c5",
+  "outcome": "chunks",
+  "chunks": 4
+ },
+ "govdocs1/000015.pdf": {
+  "sha256": "eca0f217f9fdbc5f9509894e45b247dc4cb611f534832bd368f791f4bd14796b",
+  "outcome": "chunks",
+  "chunks": 10
+ },
+ "govdocs1/000017.swf": {
+  "sha256": "c8867bb238c540f45496d540a8edafd1c6e52cf70cf2661c65e56e7cc1515c33",
+  "outcome": "UnsupportedFileType",
+  "message": ".swf"
+ },
+ "govdocs1/000024.pdf": {
+  "sha256": "dfa3b40bd8422184f589df4329e3f5a5f07884905d3d82e529cc75f6082eb8bb",
+  "outcome": "chunks",
+  "chunks": 1
+ },
+ "govdocs1/000026.pdf": {
+  "sha256": "7f0d5dffdf7aebaf5a6aa5c9344b8685a68a670fe0904c3162c770e68cc8da2e",
+  "outcome": "chunks",
+  "chunks": 9
+ },
+ "govdocs1/000027.csv": {
+  "sha256": "0866266dd2d56500c68844bf485475f2d5ad0cc63e343bb0f4f9ebc8e0b0878b",
+  "outcome": "chunks",
+  "chunks": 30
+ },
+ "govdocs1/000030.xls": {
+  "sha256": "22bdbd596c3c6db3e00ff0c14fa2ee83dffc052c56f5208cb729a3124c1c4cee",
+  "outcome": "UnsupportedFileType",
+  "message": ".xls"
+ },
+ "govdocs1/000031.xls": {
+  "sha256": "555b9629f94fb5652ca1181e125d34e45a103641824bb6bd20096069edfe2f11",
+  "outcome": "UnsupportedFileType",
+  "message": ".xls"
+ },
+ "govdocs1/000032.xls": {
+  "sha256": "2756fb7b35cb9cfcfe9b3118177d66fc1271052778af45cd36e781052f264faf",
+  "outcome": "UnsupportedFileType",
+  "message": ".xls"
+ },
+ "govdocs1/000035.xls": {
+  "sha256": "bdfc9535cf285422cf4e2e1b8d6e35b3f9e067eee2ff738dede41896cdb24650",
+  "outcome": "UnsupportedFileType",
+  "message": ".xls"
+ },
+ "govdocs1/000038.xls": {
+  "sha256": "c49a2e1715e80a914d3c7bb9fa0c143940ac345febd6aa24534f6ca081d4ff4a",
+  "outcome": "UnsupportedFileType",
+  "message": ".xls"
+ },
+ "govdocs1/000039.xml": {
+  "sha256": "bb44ff65640551bd6879684516e94fb4c791837ce4670a245f7553b3c6c734c7",
+  "outcome": "chunks",
+  "chunks": 2
+ },
+ "govdocs1/000040.xls": {
+  "sha256": "4117c9aa077554dceb076a5f63b106b391f2c18b42af44e8ae97dab52939ed80",
+  "outcome": "UnsupportedFileType",
+  "message": ".xls"
+ },
+ "govdocs1/000042.xls": {
+  "sha256": "621c3284c63d3a87318799f253112aa93baf4211878d0340959f1f45e0a5fd23",
+  "outcome": "UnsupportedFileType",
+  "message": ".xls"
+ },
+ "govdocs1/000046.xls": {
+  "sha256": "80f4bdaea00bd205a68a83dc67145e4110a63e08d2aa63f7114066374190359d",
+  "outcome": "UnsupportedFileType",
+  "message": ".xls"
+ },
+ "govdocs1/000052.xls": {
+  "sha256": "3d635e00ca186e28b6513a577c21548a2777c4911e9880e2ae59eaf9518d4bc9",
+  "outcome": "UnsupportedFileType",
+  "message": ".xls"
+ },
+ "govdocs1/000053.xls": {
+  "sha256": "d42e99927657c9602264d2f0ba53a34efa7d38f36efea3dc8219c65b6a1f7b7d",
+  "outcome": "UnsupportedFileType",
+  "message": ".xls"
+ },
+ "govdocs1/000054.xls": {
+  "sha256": "4c0ed8a2cc7a36579905bb8f666c4507c78c9e88e31f5b23f2e690c4b42f119a",
+  "outcome": "UnsupportedFileType",
+  "message": ".xls"
+ },
+ "govdocs1/000055.xls": {
+  "sha256": "7580b55ee033b3fb4ab89ef53a57230c33afe09121607bfd71c6176f829b15d2",
+  "outcome": "UnsupportedFileType",
+  "message": ".xls"
+ },
+ "govdocs1/000062.html": {
+  "sha256": "dc8aa7dd16191b6e4859e6b24974ed0007954cb90799f42b4f6bb8459c82c26f",
+  "outcome": "chunks",
+  "chunks": 1
+ },
+ "govdocs1/000067.xml": {
+  "sha256": "692202a2a01340d9c4e891e82a9069d7007b58e3014a5565fd37d1a9add9a4a8",
+  "outcome": "chunks",
+  "chunks": 2
+ },
+ "govdocs1/000073.html": {
+  "sha256": "685c9e95cc9f1dbbbb05c7674b14fcc580129b0123eaf57a94f1a0b00ed26328",
+  "outcome": "chunks",
+  "chunks": 2
+ },
+ "govdocs1/000080.html": {
+  "sha256": "40167a520721871194c58ed34c9992800ae06751f64cea42b1d0882b1826878c",
+  "outcome": "no_text"
+ },
+ "govdocs1/000081.txt": {
+  "sha256": "de39732ac65aa6da94bbebab8c2cd9bbbac1dcf4c6c6b43ca503883ee16db124",
+  "outcome": "chunks",
+  "chunks": 11
+ },
+ "govdocs1/000082.txt": {
+  "sha256": "4891ff6d7073fec68075d4ac91b864b0a04c366085cfbb3f6c6f59349ee5e5fc",
+  "outcome": "chunks",
+  "chunks": 2
+ },
+ "govdocs1/000083.unk": {
+  "sha256": "5b7a5725d74d05fccd30d3fa414af3f0ebada2a13765c7c7de5807c81ded474d",
+  "outcome": "UnsupportedFileType",
+  "message": ".unk"
+ },
+ "govdocs1/000084.txt": {
+  "sha256": "c3b69d25402232f62239a30aa60ec6f67cfd0b0c5c2d7791a212b004563615f2",
+  "outcome": "chunks",
+  "chunks": 1
+ },
+ "govdocs1/000085.txt": {
+  "sha256": "6d0ea2cf2fd7c84e33d3ec64aef9c4857b66eb9bcbb1d6535f2cef2ae8b7e9ee",
+  "outcome": "chunks",
+  "chunks": 4
+ },
+ "govdocs1/000090.txt": {
+  "sha256": "bbd290eb54b7a4ddd92d5d9305b420e3b767dc60dfca5e869f04537618ffb606",
+  "outcome": "chunks",
+  "chunks": 13
+ },
+ "govdocs1/000094.txt": {
+  "sha256": "0f994136c7f9167ca297b90d0ed631cc214780f68d9fc2602493282e770597c3",
+  "outcome": "chunks",
+  "chunks": 85
+ },
+ "govdocs1/000097.ps": {
+  "sha256": "c893c5a46e995a35774fa8b31e426542040580a46529b684c0e28c0675809dbf",
+  "outcome": "UnsupportedFileType",
+  "message": ".ps"
+ },
+ "govdocs1/000099.ps": {
+  "sha256": "8a62455ac513ef6c48734a658dafcc73389b1b4baca234b718aae3227fd9f2c2",
+  "outcome": "UnsupportedFileType",
+  "message": ".ps"
+ },
+ "govdocs1/000101.doc": {
+  "sha256": "adfc710b1637a0deb1e935d01907ba7873f6ee32c6d01e89447b6de959f23c13",
+  "outcome": "UnsupportedFileType",
+  "message": ".doc"
+ },
+ "govdocs1/000105.txt": {
+  "sha256": "f54efc03d1d12e56d259055d4a941fed8960518b5f7fb0ef40678a621f26f9b1",
+  "outcome": "chunks",
+  "chunks": 116
+ },
+ "govdocs1/000108.jpg": {
+  "sha256": "89b8f3767cef1641dd0c0635a162b21067a4fe6e651313986fcb1a7f5ab5e6a0",
+  "outcome": "UnsupportedFileType",
+  "message": ".jpg"
+ },
+ "govdocs1/000109.jpg": {
+  "sha256": "20bdc8bcf2c5774c4e39aa4da85a85cffffe19e0f4f63687a281dd3822a45b33",
+  "outcome": "UnsupportedFileType",
+  "message": ".jpg"
+ },
+ "govdocs1/000110.jpg": {
+  "sha256": "3d7c13469e3f1447e0e4bdef0d52986aeeb9ae659a80ea3eb8c70147a78ed68d",
+  "outcome": "UnsupportedFileType",
+  "message": ".jpg"
+ },
+ "govdocs1/000111.doc": {
+  "sha256": "fae2c5cfbd6ce7167db9804f5af0ce1593af601e75890f2909e9cd60d2f810bd",
+  "outcome": "UnsupportedFileType",
+  "message": ".doc"
+ },
+ "govdocs1/000112.wp": {
+  "sha256": "4c2de10c49356c57410d7b8e62500c9cfdae1700be23fda0c9b363c3d6b59673",
+  "outcome": "UnsupportedFileType",
+  "message": ".wp"
+ },
+ "govdocs1/000115.wp": {
+  "sha256": "2495467f5690b709b6ec145a4af9fcdc30f5adc601264cd4daf4226b0a4c5545",
+  "outcome": "UnsupportedFileType",
+  "message": ".wp"
+ },
+ "govdocs1/000117.rtf": {
+  "sha256": "8e8be6586bedba58f431474b61810c653e31a17ae31dfd63932546a2106617f3",
+  "outcome": "UnsupportedFileType",
+  "message": ".rtf"
+ },
+ "govdocs1/000121.doc": {
+  "sha256": "54bf37d12b8d972c84fe57048d8c732c46f639a7752a453230c218bcc95451c5",
+  "outcome": "UnsupportedFileType",
+  "message": ".doc"
+ },
+ "govdocs1/000124.doc": {
+  "sha256": "287dff4567b0e8149dc3af0b2f3da20d54e0920b39c7bd54573b5033b148e999",
+  "outcome": "UnsupportedFileType",
+  "message": ".doc"
+ },
+ "govdocs1/000125.doc": {
+  "sha256": "85b3306653ee97eff84d4d8c6531a7ce363671282e56d88903cb2f5726e9911e",
+  "outcome": "UnsupportedFileType",
+  "message": ".doc"
+ },
+ "govdocs1/000131.doc": {
+  "sha256": "41a08091836983eddda159ed5cd02f94f85d491597b10985aacba3a1c2b2395b",
+  "outcome": "UnsupportedFileType",
+  "message": ".doc"
+ },
+ "govdocs1/000132.doc": {
+  "sha256": "7cfe7021bbc1281132bfa23c166ce990378e29b1f16a42b24003d318c74af029",
+  "outcome": "UnsupportedFileType",
+  "message": ".doc"
+ },
+ "govdocs1/000133.ppt": {
+  "sha256": "1debbc7c184543285ab52a410a87ceaeff64ec44b0bc54d619c7a07be37ef438",
+  "outcome": "UnsupportedFileType",
+  "message": ".ppt"
+ },
+ "govdocs1/000144.doc": {
+  "sha256": "4b80632d5d3db38d0b2921cc67a94fded47d434343590ba58142519bfc85adf0",
+  "outcome": "UnsupportedFileType",
+  "message": ".doc"
+ },
+ "govdocs1/000154.doc": {
+  "sha256": "95407a907035d280649ecf3db23d9a58ba55581160190722f0bf9c08a6032f32",
+  "outcome": "UnsupportedFileType",
+  "message": ".doc"
+ },
+ "govdocs1/000155.pdf": {
+  "sha256": "5c4ccaaadf5acb5b7589c77fefd522fd2cca7baf454d36b1fe54eed731f8409a",
+  "outcome": "chunks",
+  "chunks": 79
+ },
+ "govdocs1/000160.ppt": {
+  "sha256": "1988f44f492b8f249c1342c5c83655e40a806c15d08890362275394848f48fb1",
+  "outcome": "UnsupportedFileType",
+  "message": ".ppt"
+ },
+ "govdocs1/000163.pdf": {
+  "sha256": "b8ecadbfcdb9f4ef945d464c230cdbc501647e11ce3cda21851d62fd458a0636",
+  "outcome": "chunks",
+  "chunks": 30
+ },
+ "govdocs1/000165.ppt": {
+  "sha256": "ffd128c37f7a1ad31cbfba839d604311c8e0e2c975cc7b712bcbba93e70faec0",
+  "outcome": "UnsupportedFileType",
+  "message": ".ppt"
+ },
+ "govdocs1/000167.ppt": {
+  "sha256": "5ae148fcebae627bdf8537f88ceabc335a789b405fd40ba649ad1336cb958a4f",
+  "outcome": "UnsupportedFileType",
+  "message": ".ppt"
+ },
+ "govdocs1/000169.ppt": {
+  "sha256": "6a8d87c88acc588b2f77d94a7364a5b0848d960c2e30a95e040fc3fa22387a3c",
+  "outcome": "UnsupportedFileType",
+  "message": ".ppt"
+ },
+ "govdocs1/000170.xls": {
+  "sha256": "21361ea782169f62a05299bdb028588bf8415186787bbd5559fb339e473cc932",
+  "outcome": "UnsupportedFileType",
+  "message": ".xls"
+ },
+ "govdocs1/000171.xls": {
+  "sha256": "f869803674dec7e03fe64c5913e1592933d5c124a84fc046e2ebd155ab3dcdde",
+  "outcome": "UnsupportedFileType",
+  "message": ".xls"
+ },
+ "govdocs1/000174.ppt": {
+  "sha256": "8cd96eda9c502399451876a0efe1fc9e6d4b6c6cbf01b07d1173c8749a9be480",
+  "outcome": "UnsupportedFileType",
+  "message": ".ppt"
+ },
+ "govdocs1/000175.ppt": {
+  "sha256": "ce737965433ce170acf2743062d1f165844cf8cc14d2296ed06b3c0be644c07c",
+  "outcome": "UnsupportedFileType",
+  "message": ".ppt"
+ },
+ "govdocs1/000180.html": {
+  "sha256": "88b8fcb4a60a2f53bbac66280747d653f08fb1e5f07c0e7a5c8e97c2984e163c",
+  "outcome": "chunks",
+  "chunks": 2
+ },
+ "govdocs1/000185.html": {
+  "sha256": "dcf7dc6dcac9f2c7918cff7800366e03b00cad5fe28acc64781994cc435cf860",
+  "outcome": "chunks",
+  "chunks": 16
+ },
+ "govdocs1/000188.html": {
+  "sha256": "1549510160c49f6130c809d07e7845d1a76b5f29519a9f0c90ab7360c25fa3e3",
+  "outcome": "chunks",
+  "chunks": 41
+ },
+ "govdocs1/000199.html": {
+  "sha256": "e677ee795a4ef06a34187377c3bedb8c32b827234e828628ebc2d7919adc0d55",
+  "outcome": "chunks",
+  "chunks": 5
+ },
+ "govdocs1/000211.html": {
+  "sha256": "c18f26e78f749928e7bbac9226e63d0a8a772b2f640225251b2ae86bb2ecfda3",
+  "outcome": "chunks",
+  "chunks": 2
+ },
+ "govdocs1/000220.txt": {
+  "sha256": "54f15fd1f3516117d3736b3a35cf9c4e446b41135bd4103db237526dbc11dcee",
+  "outcome": "chunks",
+  "chunks": 12
+ },
+ "govdocs1/000221.txt": {
+  "sha256": "6f795723211c5f0b8a7910603de7d6a5c9c7388808209e7040efb3463d01f94b",
+  "outcome": "chunks",
+  "chunks": 1
+ },
+ "govdocs1/000223.f": {
+  "sha256": "d35602e3c2eda65e98b2215ca9712ec96fd0c76f59fccda6146550db558a4e2e",
+  "outcome": "UnsupportedFileType",
+  "message": ".f"
+ },
+ "govdocs1/000224.txt": {
+  "sha256": "2be71917c3156d4c3538a52f2ba8371b7d9851990b066f9b075d4139dd210a72",
+  "outcome": "chunks",
+  "chunks": 9
+ },
+ "govdocs1/000225.f": {
+  "sha256": "fba6da048486f1c01661c9d11fd4dc6e96614f51e7a06af8cea1315731dcb377",
+  "outcome": "UnsupportedFileType",
+  "message": ".f"
+ },
+ "govdocs1/000232.jpg": {
+  "sha256": "77f9a3949a7bc90934fd8a733197029b272e4024778d8c915d7e73efcd38fe43",
+  "outcome": "UnsupportedFileType",
+  "message": ".jpg"
+ },
+ "govdocs1/000233.gif": {
+  "sha256": "fefdb39c918aafda01038d2fa05e1bcfd07cb6e5288832dc2134dbebd2a20007",
+  "outcome": "UnsupportedFileType",
+  "message": ".gif"
+ },
+ "govdocs1/000240.jpg": {
+  "sha256": "731a0abe65b36050d9769dbecc8163569a130e55e5acc3afc4799a7583965ba2",
+  "outcome": "UnsupportedFileType",
+  "message": ".jpg"
+ },
+ "govdocs1/000241.gif": {
+  "sha256": "ca7f9bbf4761993dea628913148ee31f652436fa5d3deaec8ed95f380f5a9f3b",
+  "outcome": "UnsupportedFileType",
+  "message": ".gif"
+ },
+ "govdocs1/000244.jpg": {
+  "sha256": "0bec6bacb589f7398bf1dc2c261e4728d822f794202c05afff43a7a5d70eb267",
+  "outcome": "UnsupportedFileType",
+  "message": ".jpg"
+ },
+ "govdocs1/000246.jpg": {
+  "sha256": "cf220cc23662250d957c800cf21e87ad672bd5d66863f6edf91f1825b643112f",
+  "outcome": "UnsupportedFileType",
+  "message": ".jpg"
+ },
+ "govdocs1/000248.doc": {
+  "sha256": "b38243f4b543fe4dbd0a6955b1aea2ff69764c4f3d47ce98dc0f583075e75c90",
+  "outcome": "UnsupportedFileType",
+  "message": ".doc"
+ },
+ "govdocs1/000257.rtf": {
+  "sha256": "6dc35bbd95cd9e3e044f0f5e0a684c8494d01f1b06b1e3a3d9e7cf05624a7d3f",
+  "outcome": "UnsupportedFileType",
+  "message": ".rtf"
+ },
+ "govdocs1/000258.rtf": {
+  "sha256": "88b0d639099d29c0f870cb4b794064f49ad255420644a9214434d82ae9b0a0ce",
+  "outcome": "UnsupportedFileType",
+  "message": ".rtf"
+ },
+ "govdocs1/000260.doc": {
+  "sha256": "51947087a49f8c94b3fc16fd6f021f5b8b253602e81aec8d186236bbda44ba76",
+  "outcome": "UnsupportedFileType",
+  "message": ".doc"
+ },
+ "govdocs1/000262.pdf": {
+  "sha256": "cddc0da7b710c50057098f7c66eaf4fc0579417eaedee5657b5d6e1e17ffe1b2",
+  "outcome": "chunks",
+  "chunks": 42
+ },
+ "govdocs1/000263.pdf": {
+  "sha256": "b5f8a48ca4754fbbe0a63cdecc4f794a62c9be109a7c8e4e3d06cdf6fcd9c9a3",
+  "outcome": "chunks",
+  "chunks": 5
+ },
+ "govdocs1/000264.doc": {
+  "sha256": "40ddf76d8e3dcea710d4cc2dde4510505b620a4ee44fb121a8f53b4c6cfef0c6",
+  "outcome": "UnsupportedFileType",
+  "message": ".doc"
+ },
+ "govdocs1/000269.pdf": {
+  "sha256": "f075afba278eaa8a1adb3bc28dd721d8e511e2464b4da64c33b0da9ba7044024",
+  "outcome": "chunks",
+  "chunks": 3
+ },
+ "govdocs1/000273.doc": {
+  "sha256": "1692c161496912f04761bf694fb84df78b164c98dc6f3342fa9b6aee903afc05",
+  "outcome": "UnsupportedFileType",
+  "message": ".doc"
+ },
+ "govdocs1/000284.txt": {
+  "sha256": "e68bb050e2899893946f43bb3620bfe910b5010a4a4f66e653ffd7a83a86e8cf",
+  "outcome": "chunks",
+  "chunks": 23
+ },
+ "govdocs1/000286.doc": {
+  "sha256": "29711e92b93ce2ff6f5c6e6e5035d368401859ce8adc77bbdd8e064274d0296b",
+  "outcome": "UnsupportedFileType",
+  "message": ".doc"
+ },
+ "govdocs1/000294.ppt": {
+  "sha256": "e0c0c6e100f44a8217513d590294c38bfc75d06843279ab9ef3c4acb939d34f1",
+  "outcome": "UnsupportedFileType",
+  "message": ".ppt"
+ },
+ "govdocs1/000295.ppt": {
+  "sha256": "822a34045223e0aee81a08b3fb9fdd54bcd2a4228ac6f27422ce71427d992d60",
+  "outcome": "UnsupportedFileType",
+  "message": ".ppt"
+ },
+ "govdocs1/000296.ppt": {
+  "sha256": "ac11a9d003a3aebab3d321558f72bd3bacb89f3606256feeda598bf4db843685",
+  "outcome": "UnsupportedFileType",
+  "message": ".ppt"
+ },
+ "govdocs1/000302.ppt": {
+  "sha256": "7c3089d9ca0f390242b6aa973983b86f5a19fe1d7567004929193cc8708f28db",
+  "outcome": "UnsupportedFileType",
+  "message": ".ppt"
+ },
+ "govdocs1/000303.ppt": {
+  "sha256": "aad74fdf5d06b197eaeac1dbcc66f76a93e372c42984cbd5f3d5ca45842dc02f",
+  "outcome": "UnsupportedFileType",
+  "message": ".ppt"
+ },
+ "govdocs1/000308.ppt": {
+  "sha256": "e9e883853a6c5516ffe055200d99a017416ac4bede954533937ed5307111d233",
+  "outcome": "UnsupportedFileType",
+  "message": ".ppt"
+ },
+ "govdocs1/000309.ppt": {
+  "sha256": "59ad010f704bdd6452d6cbc48915da7d9f89447971402684963bc078e5e95693",
+  "outcome": "UnsupportedFileType",
+  "message": ".ppt"
+ },
+ "govdocs1/000312.ppt": {
+  "sha256": "aa2c1cff108fffc77e5dd9ddb1795e8d49542f7cb49bbf577d3b711aede29134",
+  "outcome": "UnsupportedFileType",
+  "message": ".ppt"
+ },
+ "govdocs1/000316.pdf": {
+  "sha256": "24e9f1802a4ae129a78763e6b478839b9531ba52b410f2baa944f3da1f6c636f",
+  "outcome": "chunks",
+  "chunks": 24
+ },
+ "govdocs1/000317.ppt": {
+  "sha256": "1b7f99a9c3c7a361a80dd0a7f70f5d27e7a33ea51253f3d22fb306454d0f5ff0",
+  "outcome": "UnsupportedFileType",
+  "message": ".ppt"
+ },
+ "govdocs1/000320.ppt": {
+  "sha256": "4e7238b413103202a3719ef32d7c1c769e88fbff8c20baa7109b35caebd776d5",
+  "outcome": "UnsupportedFileType",
+  "message": ".ppt"
+ },
+ "govdocs1/000321.ppt": {
+  "sha256": "83d60eb40c36f01ecc1ab9ec6b35c322c6921cd7eb0154b225f96c71c33b20ba",
+  "outcome": "UnsupportedFileType",
+  "message": ".ppt"
+ },
+ "govdocs1/000322.ppt": {
+  "sha256": "4682a053c0723a3e80e71d6fe74388abde57801c104321705e0c3c1127ae7e79",
+  "outcome": "UnsupportedFileType",
+  "message": ".ppt"
+ },
+ "govdocs1/000335.xml": {
+  "sha256": "7ce011e1fcdbaede419b434c6cf6f27c2fd45c37786fac1187ad70c931aebac4",
+  "outcome": "chunks",
+  "chunks": 1
+ },
+ "govdocs1/000336.pdf": {
+  "sha256": "6a5527311829a104b30e65450c12632ab8545afe2d790321eb14fd340960f1c9",
+  "outcome": "chunks",
+  "chunks": 18
+ },
+ "govdocs1/000352.pdf": {
+  "sha256": "28c32f76b3fc81d4cf30b5ddf142fa42bbcca190da2dff159be138d885050b8a",
+  "outcome": "chunks",
+  "chunks": 18
+ },
+ "govdocs1/000361.pdf": {
+  "sha256": "9753c88e0aa8edb3755fe1c742ac66b58926897772e4b8c14aa270986a4040ef",
+  "outcome": "chunks",
+  "chunks": 2
+ },
+ "govdocs1/000369.pdf": {
+  "sha256": "357234fc5390e3841096f6f8ba17102b53f9c5ebe146a4c4e27a18844164a6ba",
+  "outcome": "chunks",
+  "chunks": 2
+ },
+ "govdocs1/000370.pdf": {
+  "sha256": "b78fa1c8d1db3bfea01633a8bd2ca9a6b349424737a45dc7c273fe923b6a476a",
+  "outcome": "chunks",
+  "chunks": 20
+ },
+ "govdocs1/000376.dbase3": {
+  "sha256": "b9b3a0e64f8512c433bea9c1ac10d3395b40613478efb224f0282ab6bcf96285",
+  "outcome": "UnsupportedFileType",
+  "message": ".dbase3"
+ },
+ "govdocs1/000378.xls": {
+  "sha256": "f31f00185448b12ded6e2783d333685de893aa1407cca25baaffee877f44d5cb",
+  "outcome": "UnsupportedFileType",
+  "message": ".xls"
+ },
+ "govdocs1/000382.xls": {
+  "sha256": "1c8bd4e2e643e3a4214d0721ed3f6af6dfe708b0f85c6d0ad2f2e10ba96fa8c1",
+  "outcome": "UnsupportedFileType",
+  "message": ".xls"
+ },
+ "govdocs1/000386.xls": {
+  "sha256": "d7d473782b828357aafc8c76610888da96f51a2c0c6eb0723c16774356b257c5",
+  "outcome": "UnsupportedFileType",
+  "message": ".xls"
+ },
+ "govdocs1/000389.dbase3": {
+  "sha256": "5a337503106764e9bea0ffccd034660faaea23f9032db0785542108e3a882b85",
+  "outcome": "UnsupportedFileType",
+  "message": ".dbase3"
+ },
+ "govdocs1/000390.xls": {
+  "sha256": "0375765130f0f1545231bb0fa161c181a4ff325be826049a0913d258459eaba5",
+  "outcome": "UnsupportedFileType",
+  "message": ".xls"
+ },
+ "govdocs1/000392.xls": {
+  "sha256": "47b01a5b12e4e8055d8c08c101be7c26b6e086a55dc49691b8c56e3a3b6fd3b6",
+  "outcome": "UnsupportedFileType",
+  "message": ".xls"
+ },
+ "govdocs1/000395.xls": {
+  "sha256": "7718316e9cd4f13ad59080e4ff6fa0fc77ec897a84f3a41a68ff8ca2e75e951b",
+  "outcome": "UnsupportedFileType",
+  "message": ".xls"
+ },
+ "govdocs1/000397.jpg": {
+  "sha256": "ebdf27dd908151399341e99d05011185e77f9ee368229f666c771009729a3330",
+  "outcome": "UnsupportedFileType",
+  "message": ".jpg"
+ },
+ "govdocs1/000405.xls": {
+  "sha256": "d84b4bdb2a71f0395537bd2a9df0373f04722b4ef8e0e7aebbb35dfb83edc7c1",
+  "outcome": "UnsupportedFileType",
+  "message": ".xls"
+ },
+ "govdocs1/000412.html": {
+  "sha256": "09fe5a4226d8fb80fcbcbcc7e34f859581769e66004f3d76e6edc25c6a38188b",
+  "outcome": "chunks",
+  "chunks": 3
+ },
+ "govdocs1/000417.jpg": {
+  "sha256": "d29e9b13761b235fd6b40e7d64c1f0a2c9aff2765a05ebbdcfd91fb2173405d7",
+  "outcome": "UnsupportedFileType",
+  "message": ".jpg"
+ },
+ "govdocs1/000424.html": {
+  "sha256": "082d5522724360152b5ed6a233b8de2b4f1e4c71c9ce1f3b12056c21b25d3678",
+  "outcome": "chunks",
+  "chunks": 2
+ },
+ "govdocs1/000426.html": {
+  "sha256": "3744b53c2962e6de059402eeb9bcebfb51493078e62e6d5ee8efd6b09bdc09e9",
+  "outcome": "chunks",
+  "chunks": 5
+ },
+ "govdocs1/000432.jpg": {
+  "sha256": "15adbb508e2082f5607936761e99cafb1bf3716184e6b4207f47bd3415ed834e",
+  "outcome": "UnsupportedFileType",
+  "message": ".jpg"
+ },
+ "govdocs1/000434.html": {
+  "sha256": "836bed18466c2a2e468d8425333388091a0268fb24469e1ab1628ed034393f63",
+  "outcome": "chunks",
+  "chunks": 3
+ },
+ "govdocs1/000435.html": {
+  "sha256": "99b1725adb9ccc1e6266d89a9d0e8da014ea01c09aaeb17efbf8d211e45efcc5",
+  "outcome": "chunks",
+  "chunks": 1
+ },
+ "govdocs1/000436.html": {
+  "sha256": "e6903ce52264e194a22466e75e8ffd2443be0e89e2c38c95104f72d34555ee1b",
+  "outcome": "chunks",
+  "chunks": 1
+ },
+ "govdocs1/000438.html": {
+  "sha256": "40a925ad5e8afde644f4374033dbaf99029b1c53b3f8f5e29c1d926f6aeccbe9",
+  "outcome": "chunks",
+  "chunks": 3
+ },
+ "govdocs1/000446.html": {
+  "sha256": "d59bcb219cee0c5bf1ebfd4bf20e73fee34b9c9a20b6438c0b8927411dfe4602",
+  "outcome": "chunks",
+  "chunks": 4
+ },
+ "govdocs1/000459.html": {
+  "sha256": "8eb5aac301740d896a8ed6578b03537d0e8806d2407c3f2693888ec9cd838063",
+  "outcome": "chunks",
+  "chunks": 1
+ },
+ "govdocs1/000463.txt": {
+  "sha256": "1e3ddba7e358b72f03b09958a19cf6cdd93ea05eafe477f69441bfd4dc16c989",
+  "outcome": "chunks",
+  "chunks": 3
+ },
+ "govdocs1/000465.unk": {
+  "sha256": "8b4b6b4acdf84ef7eafb512e6d241b31f4316a1202dd4002a7771964d64df24b",
+  "outcome": "UnsupportedFileType",
+  "message": ".unk"
+ },
+ "govdocs1/000466.unk": {
+  "sha256": "76407a2ea96241f5bb2329712ca354ae9ed5c9a7560decc5d51a0eab4d3f4d99",
+  "outcome": "UnsupportedFileType",
+  "message": ".unk"
+ },
+ "govdocs1/000469.jpg": {
+  "sha256": "f93dcf30914c94653bf561061df3c1f441935e78c05646ed13548e77679e4ac7",
+  "outcome": "UnsupportedFileType",
+  "message": ".jpg"
+ },
+ "govdocs1/000471.txt": {
+  "sha256": "fcfa1bb245b67b698fad6609629e138983b076a399929d8da03b5787f2619d42",
+  "outcome": "chunks",
+  "chunks": 19
+ },
+ "govdocs1/000474.txt": {
+  "sha256": "10b852386d90b8cf1d928492107436f990e214e77be0d254ba73c0878da58f36",
+  "outcome": "chunks",
+  "chunks": 258
+ },
+ "govdocs1/000482.ps": {
+  "sha256": "2079976b98dc8c571824cf574bb9be59d968f0ce035bd4b000bafdc895a91167",
+  "outcome": "UnsupportedFileType",
+  "message": ".ps"
+ },
+ "govdocs1/000488.unk": {
+  "sha256": "bad15aee01aa18e7f652f33ea988e0d75a4692bc6f766c19a1a79af88480549d",
+  "outcome": "UnsupportedFileType",
+  "message": ".unk"
+ },
+ "govdocs1/000493.xml": {
+  "sha256": "ee7af7c3c0bfd3fbafa0f89d55b6750e8ab1249901ccee6ea95aff6e01647032",
+  "outcome": "chunks",
+  "chunks": 1
+ },
+ "govdocs1/000495.unk": {
+  "sha256": "16aa4e0db9e6e0b7f90a835b51a91ca37fd2fcbbf7036bee1094db59396177c1",
+  "outcome": "UnsupportedFileType",
+  "message": ".unk"
+ },
+ "govdocs1/000496.xml": {
+  "sha256": "60b0b22dd456609ed1a439a13785d627172a4035020702deb1406decc2a54d04",
+  "outcome": "chunks",
+  "chunks": 100
+ },
+ "govdocs1/000497.xml": {
+  "sha256": "2cd9f2f7b73b129146288a5b1ba628051989d378a15560e1b2251da0a22ceb8e",
+  "outcome": "chunks",
+  "chunks": 254
+ },
+ "govdocs1/000498.txt": {
+  "sha256": "bbd666b76958147d53ada5acc878ffdda6e4b99102ebc65cdfb1ab06896e33d3",
+  "outcome": "chunks",
+  "chunks": 4
+ },
+ "govdocs1/000499.txt": {
+  "sha256": "e345d2ca14632b89886abe4ce1e30f48cfd91fa0044b5d176a15cbee05af4696",
+  "outcome": "chunks",
+  "chunks": 8
+ },
+ "govdocs1/000507.jpg": {
+  "sha256": "ba6a2cebe4fdf783c4ee42c7fd844c0bb2474a1a5f85ad8810e1d9fb5c2d1026",
+  "outcome": "UnsupportedFileType",
+  "message": ".jpg"
+ },
+ "govdocs1/000510.jpg": {
+  "sha256": "522c24cab24bb70fd9f4b8e47919a013df0aeaa361fdf5d44b80b177b7a8f43b",
+  "outcome": "UnsupportedFileType",
+  "message": ".jpg"
+ },
+ "govdocs1/000511.gif": {
+  "sha256": "f98d672289fd3c182609e1505a1c64a71682f4989c78e9872ab94682be801025",
+  "outcome": "UnsupportedFileType",
+  "message": ".gif"
+ },
+ "govdocs1/000515.jpg": {
+  "sha256": "4b29adf7b4bb35b2baeb3aeb35fc8821deedc35540762b420907c57695344a9b",
+  "outcome": "UnsupportedFileType",
+  "message": ".jpg"
+ },
+ "govdocs1/000516.jpg": {
+  "sha256": "acb808bb0606391d4636a4c8910d6ec103a8d515ee92d1886ec73be6e12d5ca1",
+  "outcome": "UnsupportedFileType",
+  "message": ".jpg"
+ },
+ "govdocs1/000517.gif": {
+  "sha256": "f49501af1035d60cebbc26298ed96dd6d2d2b0d5b77859aeceabaaa6ff21024d",
+  "outcome": "UnsupportedFileType",
+  "message": ".gif"
+ },
+ "govdocs1/000519.gif": {
+  "sha256": "8075f23721bbd3d7906998c74c7031149d1150e62486f5d69cb52be65b1464f8",
+  "outcome": "UnsupportedFileType",
+  "message": ".gif"
+ },
+ "govdocs1/000520.gif": {
+  "sha256": "01ae410817373859128a8b1eb37f1fd1f096b236d8fb8fd80e2d8bac4b853096",
+  "outcome": "UnsupportedFileType",
+  "message": ".gif"
+ },
+ "govdocs1/000522.gif": {
+  "sha256": "adf283a70397bacaf14099bc8e046a9093b2dc647ed731276014deee06d3212e",
+  "outcome": "UnsupportedFileType",
+  "message": ".gif"
+ },
+ "govdocs1/000523.png": {
+  "sha256": "4168bb4309546d3d63db3eb3509dfd8fa5676ef9c33a11016d25267026449656",
+  "outcome": "UnsupportedFileType",
+  "message": ".png"
+ },
+ "govdocs1/000524.jpg": {
+  "sha256": "3de0cb8e272490f7fd9054b51b498913b215f5c1aaec2d4781b9c3a03e0dd2fa",
+  "outcome": "UnsupportedFileType",
+  "message": ".jpg"
+ },
+ "govdocs1/000525.gif": {
+  "sha256": "653630ba5253957f63ae4428f0a2b0268d3f6f7dc5c97700883c3b7a8afcc91e",
+  "outcome": "UnsupportedFileType",
+  "message": ".gif"
+ },
+ "govdocs1/000526.gif": {
+  "sha256": "d9e527a17adb08101f3dfefaa49715fe464f51ca50e03e2bc8453790300efeee",
+  "outcome": "UnsupportedFileType",
+  "message": ".gif"
+ },
+ "govdocs1/000527.gif": {
+  "sha256": "c836c11a7947d8b3b66b76ea983a6698b3a20c3074d5a2174ded8e57e7091f16",
+  "outcome": "UnsupportedFileType",
+  "message": ".gif"
+ },
+ "govdocs1/000528.jpg": {
+  "sha256": "576ba1eacaee1ec398d54d598b250714ad14d485a03234825ab2ae3c9b6af3cf",
+  "outcome": "UnsupportedFileType",
+  "message": ".jpg"
+ },
+ "govdocs1/000529.gif": {
+  "sha256": "89a12988dab6d86ff58b8a185420a58912cba90305b05a1ca2576a404c93f67a",
+  "outcome": "UnsupportedFileType",
+  "message": ".gif"
+ },
+ "govdocs1/000530.gif": {
+  "sha256": "69a63739951722c29481f016a3254b5586c0b8783fdd7cf4ac5f55332c40550e",
+  "outcome": "UnsupportedFileType",
+  "message": ".gif"
+ },
+ "govdocs1/000532.jpg": {
+  "sha256": "571163f678f53a865d3e2b9a1765bc2964e0c5e157e0929b0be71787ad000424",
+  "outcome": "UnsupportedFileType",
+  "message": ".jpg"
+ },
+ "govdocs1/000533.doc": {
+  "sha256": "b49aabf7246f441e0b1d1f17266ade6edf76c23fc6c7a8fcdb387752017f596a",
+  "outcome": "UnsupportedFileType",
+  "message": ".doc"
+ },
+ "govdocs1/000534.gif": {
+  "sha256": "2f8682cc82abde00fd05b58477a96a73211c5a439f0b9533f7f34eb3b1382f0b",
+  "outcome": "UnsupportedFileType",
+  "message": ".gif"
+ },
+ "govdocs1/000537.gif": {
+  "sha256": "7d43af48b5c2907580d4ff75f62fbaccd913f44abc9b174a857d0d57ccc9c273",
+  "outcome": "UnsupportedFileType",
+  "message": ".gif"
+ },
+ "govdocs1/000538.gif": {
+  "sha256": "1c1a4fcd3695f4df9bf4654d491f04482aa49f1d103daaca10bb2a023c40ba4e",
+  "outcome": "UnsupportedFileType",
+  "message": ".gif"
+ },
+ "govdocs1/000539.jpg": {
+  "sha256": "1513bcefbcc8b5d63f61fa52d215dc66f4bd50a3a55ae6261316d40376d1a81e",
+  "outcome": "UnsupportedFileType",
+  "message": ".jpg"
+ },
+ "govdocs1/000540.jpg": {
+  "sha256": "4f1c428baa34afb32f6e5438a9f2d0abfa172709998a6615f599ef257c74db02",
+  "outcome": "UnsupportedFileType",
+  "message": ".jpg"
+ },
+ "govdocs1/000542.gif": {
+  "sha256": "58c515715528fbb7f6118f3a128e223a018fd00f34c871bb48f1e26e3c14d4b5",
+  "outcome": "UnsupportedFileType",
+  "message": ".gif"
+ },
+ "govdocs1/000543.gif": {
+  "sha256": "961a29279536e3b9bbe58798d6ef6a7b57a87a8cbfe8d87a6c6288342c8987a0",
+  "outcome": "UnsupportedFileType",
+  "message": ".gif"
+ },
+ "govdocs1/000545.gif": {
+  "sha256": "c7e3e1a421f0d51326a4f6dc59db200b679bea8ee72722b590fe9fea272f97e8",
+  "outcome": "UnsupportedFileType",
+  "message": ".gif"
+ },
+ "govdocs1/000546.jpg": {
+  "sha256": "a43e02c0375d75eb5d652e74c435f14e19491fd38c3619de519db24cb6652615",
+  "outcome": "UnsupportedFileType",
+  "message": ".jpg"
+ },
+ "govdocs1/000548.gif": {
+  "sha256": "5f0c67b668624df9c9301912bdea0a5ec8679d556eefb0090f0b18184e0faeb0",
+  "outcome": "UnsupportedFileType",
+  "message": ".gif"
+ },
+ "govdocs1/000553.html": {
+  "sha256": "bccbc5df9ee713be8c03d9b373bc3a4c87accd533abe6e9424207700d727026e",
+  "outcome": "chunks",
+  "chunks": 5
+ },
+ "govdocs1/000558.ppt": {
+  "sha256": "cf3dbe97b397d26fd7b6b4db9f5f02a8e6098d44e064d5687b5651fbd1c2836d",
+  "outcome": "UnsupportedFileType",
+  "message": ".ppt"
+ },
+ "govdocs1/000561.gif": {
+  "sha256": "d531ceb037c2f3eea22bbb61dd9acfb13b998a5d447993122a1e85eeaffa20ad",
+  "outcome": "UnsupportedFileType",
+  "message": ".gif"
+ },
+ "govdocs1/000562.pdf": {
+  "sha256": "0ee4ccc10db4aa054187005d47e71999e092355319f3cd4f0defefd80d1a46bb",
+  "outcome": "chunks",
+  "chunks": 32
+ },
+ "govdocs1/000563.gif": {
+  "sha256": "e6942c386441c90444957f9b62ca7d8f3d51cc05d8b1654aeeb41dadab8ae744",
+  "outcome": "UnsupportedFileType",
+  "message": ".gif"
+ },
+ "govdocs1/000564.csv": {
+  "sha256": "fa44a30c2a01014fc15c461e8096caf90ca9d14cbb745ade846e7d98a2025d5c",
+  "outcome": "chunks",
+  "chunks": 5692
+ },
+ "govdocs1/000565.csv": {
+  "sha256": "208daa408460735205501473cc6847a56b24f1d6e4cf197284bc8ddeb076e7c8",
+  "outcome": "chunks",
+  "chunks": 34
+ },
+ "govdocs1/000573.swf": {
+  "sha256": "fb4d32bd6e0ad7dab2a6c99acee2d7c59c8cc681f6867c489a595998fb8865a1",
+  "outcome": "UnsupportedFileType",
+  "message": ".swf"
+ },
+ "govdocs1/000575.csv": {
+  "sha256": "b0bfaa855f95753d0426222fe70de1bb07f6bbe0e4e3b771b70346aba43e078e",
+  "outcome": "chunks",
+  "chunks": 29
+ },
+ "govdocs1/000576.csv": {
+  "sha256": "53596de1d6f8635297691647e3302a9158474d3b79d1e4321fb91520d9ab408a",
+  "outcome": "chunks",
+  "chunks": 112
+ },
+ "govdocs1/000579.gz": {
+  "sha256": "c4b726ec57f61a50bd417779b2250c48437e34c47dd5a07675e4cd69b63bfd89",
+  "outcome": "UnsupportedFileType",
+  "message": ".gz"
+ },
+ "govdocs1/000581.pdf": {
+  "sha256": "241ba812f62f47c47d2f305f04bbfbc3eb4cc7dd5e29b588e91e5e06e036174c",
+  "outcome": "chunks",
+  "chunks": 25
+ },
+ "govdocs1/000609.html": {
+  "sha256": "398d17c6379f77d355c0d72f8a55d72880bbaf2c8cd96186404c75fa12596647",
+  "outcome": "chunks",
+  "chunks": 7
+ },
+ "govdocs1/000614.jpg": {
+  "sha256": "bff51522b30a182d1dcfbc4e6bf20b9bedd9f62e5925bda16a4c7a4d247ad4ce",
+  "outcome": "UnsupportedFileType",
+  "message": ".jpg"
+ },
+ "govdocs1/000616.html": {
+  "sha256": "ffb5de686b59995d2c8d2d878a997b82fc9e38b265b6df2192d05c78e876d44e",
+  "outcome": "chunks",
+  "chunks": 1
+ },
+ "govdocs1/000619.txt": {
+  "sha256": "2ca111d02fa7e1144c8a78cdb43083cb77ad5625b0d9996e4247fe6eb57e3b17",
+  "outcome": "chunks",
+  "chunks": 1
+ },
+ "govdocs1/000631.pdf": {
+  "sha256": "94627554f72327ebd0265fe37789e152d4179856d034921ba01f02161ab94c09",
+  "outcome": "chunks",
+  "chunks": 148
+ },
+ "govdocs1/000633.xls": {
+  "sha256": "49d04f362df8abfdbe7b10d0f58b0be4eafa352c10db069371a8ecb3af6b91ec",
+  "outcome": "UnsupportedFileType",
+  "message": ".xls"
+ },
+ "govdocs1/000635.html": {
+  "sha256": "8972753c996cc084d00f920a8fdb2e5f94e2282cf77a1c6954a51fccf1c2f242",
+  "outcome": "chunks",
+  "chunks": 8
+ },
+ "govdocs1/000643.txt": {
+  "sha256": "c6914e6206b645635405a324fc107fdb7d411685b7c3804b050e28e882f4ec6b",
+  "outcome": "chunks",
+  "chunks": 3
+ },
+ "govdocs1/000653.txt": {
+  "sha256": "5591cc134e9c3c8a78a896013b9c96487f68ca17675ead10a59fba2f3b4191a2",
+  "outcome": "chunks",
+  "chunks": 184
+ },
+ "govdocs1/000659.txt": {
+  "sha256": "4f28fd313032b38eb28755431299b2e0359a47791e332e10625cfb0dd5781939",
+  "outcome": "chunks",
+  "chunks": 184
+ },
+ "govdocs1/000674.pdf": {
+  "sha256": "bc44bd5e4103696b43856723a352181bd9d82b22fd7fcf9d53c0ec119b27d801",
+  "outcome": "chunks",
+  "chunks": 1001
+ },
+ "govdocs1/000677.doc": {
+  "sha256": "6a73c12dce0a3675910ee8aea2dc7f99050675646e1243c9667a9aaf224e2acd",
+  "outcome": "UnsupportedFileType",
+  "message": ".doc"
+ },
+ "govdocs1/000678.doc": {
+  "sha256": "2ccb1714ffc9ebfca48dcd1340201e10ef103418871f8c6b1e7ee0ebca338c0a",
+  "outcome": "UnsupportedFileType",
+  "message": ".doc"
+ },
+ "govdocs1/000688.gif": {
+  "sha256": "e66c8ba46506e54dcf7f3d55501c42ffa9b0ea889a22895a7a47d32c8bbf9f4a",
+  "outcome": "UnsupportedFileType",
+  "message": ".gif"
+ },
+ "govdocs1/000689.csv": {
+  "sha256": "9d586440ea9684d6eb38105a7603c128528976dcab5728f6aa1de21cda1497ce",
+  "outcome": "chunks",
+  "chunks": 2
+ },
+ "govdocs1/000690.csv": {
+  "sha256": "1b12ea44316df94a39df18299cd58b41e905c1c25cd1b3a1a6587ba9b4bb85e3",
+  "outcome": "chunks",
+  "chunks": 29
+ },
+ "govdocs1/000691.doc": {
+  "sha256": "37aba4de85c6ddcc48f79d5fa4759ffca64f9ad3e0098e7fb96d4974789dcd29",
+  "outcome": "UnsupportedFileType",
+  "message": ".doc"
+ },
+ "govdocs1/000693.doc": {
+  "sha256": "ab51ae31b027ad4f14c7853ba1dcea7eb508031a7c2bba32f98369747afd840b",
+  "outcome": "UnsupportedFileType",
+  "message": ".doc"
+ },
+ "govdocs1/000696.doc": {
+  "sha256": "2a9e0f0ab120cb0022189f7d6fa4a15a26f3a5b24ce8b37532f7887395d1e551",
+  "outcome": "UnsupportedFileType",
+  "message": ".doc"
+ },
+ "govdocs1/000697.log": {
+  "sha256": "d3f80031442986bd4a2aa634965e0e1707755ac8876787239c2a51253aed555f",
+  "outcome": "chunks",
+  "chunks": 73
+ },
+ "govdocs1/000698.log": {
+  "sha256": "af04916134dfb2d30660a6d4ee39c2d84e946b49765a9ac10fff088a46f322c7",
+  "outcome": "chunks",
+  "chunks": 642
+ },
+ "govdocs1/000699.log": {
+  "sha256": "52295143969e17cbb69801b080d76c80d0ed30f63f88efb26f0a72427370905e",
+  "outcome": "chunks",
+  "chunks": 1455
+ },
+ "govdocs1/000700.xml": {
+  "sha256": "3a076c34bfce69a74e4df6fee1ed402a5b59ec095935782769c82962c9ef0797",
+  "outcome": "chunks",
+  "chunks": 33
+ },
+ "govdocs1/000702.ps": {
+  "sha256": "cad42119901a70beba68c7bfafcaeb1cfa3c1dc527fa5df12b7ec20993a505d6",
+  "outcome": "UnsupportedFileType",
+  "message": ".ps"
+ },
+ "govdocs1/000703.xml": {
+  "sha256": "682d108cce80a3db2689d5a736745087c8833c4c451ca84cec158a070faccbb0",
+  "outcome": "chunks",
+  "chunks": 26
+ },
+ "govdocs1/000704.xml": {
+  "sha256": "21daec14a4ca5fcffec328de3993d0e8ec29170a3333b7d26e0eb9b528ba2391",
+  "outcome": "chunks",
+  "chunks": 43
+ },
+ "govdocs1/000705.doc": {
+  "sha256": "efa07a723c97296a510d840fc40fc7034134738c8e85b13344a48704ff6898eb",
+  "outcome": "UnsupportedFileType",
+  "message": ".doc"
+ },
+ "govdocs1/000706.doc": {
+  "sha256": "49024b44689c24aba26e6683356f6c4db260a963e44eb8e6d9181aac854c7d12",
+  "outcome": "UnsupportedFileType",
+  "message": ".doc"
+ },
+ "govdocs1/000707.doc": {
+  "sha256": "84d1f4aa6ea0dc0d75222ef3521276ae44257826e018f5e27bc9d7eb06f439c4",
+  "outcome": "UnsupportedFileType",
+  "message": ".doc"
+ },
+ "govdocs1/000713.ppt": {
+  "sha256": "57b88240f0e3ea0af38b98407d54ac550751b982d2bae0eed226aacde7f16d92",
+  "outcome": "UnsupportedFileType",
+  "message": ".ppt"
+ },
+ "govdocs1/000717.ppt": {
+  "sha256": "76826a5d2b6832baeb113b28d9ab4ea567fc72bb54a6c33e7b1ad6e467df125c",
+  "outcome": "UnsupportedFileType",
+  "message": ".ppt"
+ },
+ "govdocs1/000718.gz": {
+  "sha256": "25e3555ed69350ceecc8e1a85ab206f9e50cb16d5af3a22bc81a10d540186393",
+  "outcome": "UnsupportedFileType",
+  "message": ".gz"
+ },
+ "govdocs1/000719.ppt": {
+  "sha256": "5ac6fbf6152fa623d0028f6ac215a3a6c3fcdd8eaaacd5647463407b8b17404b",
+  "outcome": "UnsupportedFileType",
+  "message": ".ppt"
+ },
+ "govdocs1/000721.csv": {
+  "sha256": "a409d3c36ba45b91093eb7e86b84a2e520ecb5a52040527faaed9edc364dea8e",
+  "outcome": "chunks",
+  "chunks": 7
+ },
+ "govdocs1/000722.csv": {
+  "sha256": "28a2c638ab71ed03683af11a5d49cd7520bd949d136dd69d5309504a0ab6e6dd",
+  "outcome": "chunks",
+  "chunks": 3
+ },
+ "govdocs1/000724.ppt": {
+  "sha256": "d751f5c52bc92760792ec94741d8ba9df1683b9ce8b9e1cbef061723f7234588",
+  "outcome": "UnsupportedFileType",
+  "message": ".ppt"
+ },
+ "govdocs1/000730.ps": {
+  "sha256": "e118ef8155d7d589a8d9129278ce1208ef6c887253c0dc24c16500ebf5d00071",
+  "outcome": "UnsupportedFileType",
+  "message": ".ps"
+ },
+ "govdocs1/000731.ps": {
+  "sha256": "7bcb2513328eb73e78cc500ae90aa2971ad6522702f309e7ea0cad61f6935f55",
+  "outcome": "UnsupportedFileType",
+  "message": ".ps"
+ },
+ "govdocs1/000732.ppt": {
+  "sha256": "1620dac7968495e658427992a28ff950dbeef26e642c36245a2b60541819ca9e",
+  "outcome": "UnsupportedFileType",
+  "message": ".ppt"
+ },
+ "govdocs1/000733.ps": {
+  "sha256": "2cd10e8bcd0571ef9b82dc54ee801b5efe4743d7fdda767162239d2d26489768",
+  "outcome": "UnsupportedFileType",
+  "message": ".ps"
+ },
+ "govdocs1/000734.ps": {
+  "sha256": "0b1f8b63603d9e3f8bc5f2a67554da24cd81f0751c8a970f288a703eb72ab28e",
+  "outcome": "UnsupportedFileType",
+  "message": ".ps"
+ },
+ "govdocs1/000735.html": {
+  "sha256": "f03a9c519aa0f0343997253de19bf1f136ae91f4953cb6f8893f75a2162b3426",
+  "outcome": "chunks",
+  "chunks": 92
+ },
+ "govdocs1/000736.gz": {
+  "sha256": "aa5979cde8069240a5bf1a1ea1fb4d4d77ccbc7e85eb37a1c54cd3c2e45a3843",
+  "outcome": "UnsupportedFileType",
+  "message": ".gz"
+ },
+ "govdocs1/000739.pdf": {
+  "sha256": "72aae37ab6617508dcb93a03e2e75b6240c29138a43a82422773c6d8dd2c729f",
+  "outcome": "chunks",
+  "chunks": 36
+ },
+ "govdocs1/000741.log": {
+  "sha256": "8ed17491f63f846db7dba9bc8793ee4488d9ba867928181dd7bfa89a4d36ad80",
+  "outcome": "chunks",
+  "chunks": 9
+ },
+ "govdocs1/000743.log": {
+  "sha256": "4987ed49c7732b185f48456422818a8e9e1e6710f3ea0125239773774d5dc848",
+  "outcome": "chunks",
+  "chunks": 21
+ },
+ "govdocs1/000744.pdf": {
+  "sha256": "0c6daef79b7165c18ea3a0295868c8ba07f902777959f2ca259d51db3ac36472",
+  "outcome": "chunks",
+  "chunks": 62
+ },
+ "govdocs1/000746.pdf": {
+  "sha256": "5370aa31c1baee8ca59c73e6794038cff802f358db88f285379f3b52f47ac792",
+  "outcome": "chunks",
+  "chunks": 33
+ },
+ "govdocs1/000748.pdf": {
+  "sha256": "3683a7c0e58dfa370823c9670d3591808329f7a9ff93972fd69bb9fe53d08790",
+  "outcome": "chunks",
+  "chunks": 7
+ },
+ "govdocs1/000754.gz": {
+  "sha256": "c4778931fd85f078fceb3be15c42c928505c104e8893baad3927d5f1ce707938",
+  "outcome": "UnsupportedFileType",
+  "message": ".gz"
+ },
+ "govdocs1/000756.csv": {
+  "sha256": "c7866cea665215056005fadcf49924a012d7cd02cbaed9c2e48029cb6d791311",
+  "outcome": "chunks",
+  "chunks": 1624
+ },
+ "govdocs1/000759.doc": {
+  "sha256": "d1adda97a4e6ef9878f6054aed2796c8b49e32004b506fa978d27004e89c5e39",
+  "outcome": "UnsupportedFileType",
+  "message": ".doc"
+ },
+ "govdocs1/000761.pdf": {
+  "sha256": "c053d8942f0f40f13a15ee9fc2e89ee495cded8bf46744b301fc490c98e3dbe8",
+  "outcome": "chunks",
+  "chunks": 30
+ },
+ "govdocs1/000764.csv": {
+  "sha256": "7785c0a682accf7e60f4c193414e25c860c56b53573554aa3b50a0884d096f11",
+  "outcome": "chunks",
+  "chunks": 6
+ },
+ "govdocs1/000765.log": {
+  "sha256": "7b1c9527489110189abfacdb69a62f4bc1e1f27e87fa89350efe561882b2120f",
+  "outcome": "chunks",
+  "chunks": 52
+ },
+ "govdocs1/000766.ps": {
+  "sha256": "bfa9d0053d241b13c41dcbeaabea313d080d7610333d1116cb8e605504f4a2a9",
+  "outcome": "UnsupportedFileType",
+  "message": ".ps"
+ },
+ "govdocs1/000767.ps": {
+  "sha256": "fc1be27869d112c246141bbd5b94912d1f76d7b1df2d89c87c1a252f15757a51",
+  "outcome": "UnsupportedFileType",
+  "message": ".ps"
+ },
+ "govdocs1/000768.ps": {
+  "sha256": "302c9240ca7adc27afc7e855ef3fb98c7adbd3622b89c47b12bd5f5a26c9d08f",
+  "outcome": "UnsupportedFileType",
+  "message": ".ps"
+ },
+ "govdocs1/000772.ps": {
+  "sha256": "ceeae475fc53b361b62abd35d822c744ee1a7f75ba4534235e479efd02afb27d",
+  "outcome": "UnsupportedFileType",
+  "message": ".ps"
+ },
+ "govdocs1/000773.ps": {
+  "sha256": "1075a5cdf365eada7e02284400a082bc8f40a822308ecfd0bf0624e610ae795d",
+  "outcome": "UnsupportedFileType",
+  "message": ".ps"
+ },
+ "govdocs1/000774.ps": {
+  "sha256": "2752e921d3dec351335baeb04cb19f5e73795da2e277d2fe0e1aafdec1b6d89b",
+  "outcome": "UnsupportedFileType",
+  "message": ".ps"
+ },
+ "govdocs1/000775.xls": {
+  "sha256": "b88ace3f7a0fffdfd7e039b6ea53344a750ba6b80b7ea2521d0f9eb5ae201441",
+  "outcome": "UnsupportedFileType",
+  "message": ".xls"
+ },
+ "govdocs1/000776.xls": {
+  "sha256": "3bea8d72221004e09a56da43be171bd6da96db337f3f4220f664661821c3d57a",
+  "outcome": "UnsupportedFileType",
+  "message": ".xls"
+ },
+ "govdocs1/000778.xls": {
+  "sha256": "140c0f8af71251719324a7f25b76c3fc3fa93bfd737565964ab692cb14f279ed",
+  "outcome": "UnsupportedFileType",
+  "message": ".xls"
+ },
+ "govdocs1/000779.xls": {
+  "sha256": "80db0552a78b594e671c16b4f099606a576b38f0f3790173aba64825debfa03c",
+  "outcome": "UnsupportedFileType",
+  "message": ".xls"
+ },
+ "govdocs1/000780.xls": {
+  "sha256": "9be14296d81eec66b614aaf055a8f6e43a3331e79f5a3cb920937ffa435a52d6",
+  "outcome": "UnsupportedFileType",
+  "message": ".xls"
+ },
+ "govdocs1/000782.xls": {
+  "sha256": "d2143d22e99ccc3f9b798c3736cdf2178bac1c732bac123c4d92c1d60133de28",
+  "outcome": "UnsupportedFileType",
+  "message": ".xls"
+ },
+ "govdocs1/000786.gz": {
+  "sha256": "953833d938ec7322ac68eaf858c1ea670cc2fea39a23468f9eaad0466a082fe3",
+  "outcome": "UnsupportedFileType",
+  "message": ".gz"
+ },
+ "govdocs1/000789.html": {
+  "sha256": "eefca8128ffd6ba0ead9fc08dcdd93e1181eb0d607a3d2a4a5d4b3cf105ae767",
+  "outcome": "chunks",
+  "chunks": 6
+ },
+ "govdocs1/000790.doc": {
+  "sha256": "fa5d53d1fe4f555d648b90756aa98e9d187e1eb37bdae8b48628dc069ceda3dd",
+  "outcome": "UnsupportedFileType",
+  "message": ".doc"
+ },
+ "govdocs1/000793.html": {
+  "sha256": "980e84a2d7248b660a6e813edb34ee669857389ecc45f2f7de67c5ef837a6005",
+  "outcome": "chunks",
+  "chunks": 7
+ },
+ "govdocs1/000797.html": {
+  "sha256": "26ac5831b2a4bcf0f10c0aca9c6bf2b548338ec3f442d9d4c538582ec11eb984",
+  "outcome": "chunks",
+  "chunks": 1
+ },
+ "govdocs1/000803.rtf": {
+  "sha256": "a17e9d43ef603962115a9737ce6b1799b37a507385596d7ae4ab184ecff8f1a1",
+  "outcome": "UnsupportedFileType",
+  "message": ".rtf"
+ },
+ "govdocs1/000805.html": {
+  "sha256": "26a3d9b5469e178e1cc4163e2a2085896035faa391b8b0b679d913a8be56f2a1",
+  "outcome": "chunks",
+  "chunks": 2
+ },
+ "govdocs1/000812.html": {
+  "sha256": "4ccd7105ef26b054db4b243dbf0be5cce76dd6ee5f243b8b8329559c2389dc9a",
+  "outcome": "chunks",
+  "chunks": 5
+ },
+ "govdocs1/000815.html": {
+  "sha256": "cdbd78045fea39176f0a20803d68cca3a395a4e847352ee9aca384f6b9225328",
+  "outcome": "chunks",
+  "chunks": 23
+ },
+ "govdocs1/000816.pdf": {
+  "sha256": "b3eba9bc82a22181ea6c6b6695f11f07aa2f9e98fa9686a0974c0a0b7dab2a6b",
+  "outcome": "chunks",
+  "chunks": 28
+ },
+ "govdocs1/000824.html": {
+  "sha256": "be895f7921253ddfdeefcafd0be2d5a3a14be4c5747056f35df5df10944cbfd8",
+  "outcome": "chunks",
+  "chunks": 8
+ },
+ "govdocs1/000827.txt": {
+  "sha256": "23f67c2b33825ee576872e4d3c70b4928023c4d5d09aec16bbbb033b068887b6",
+  "outcome": "chunks",
+  "chunks": 1
+ },
+ "govdocs1/000833.txt": {
+  "sha256": "327199f0fccd5a49c9b069341287da1835062c58b74673dd2b994abe48fb1f90",
+  "outcome": "chunks",
+  "chunks": 3
+ },
+ "govdocs1/000834.pdf": {
+  "sha256": "f1fd2c0745fa1338b01b4d456a8aeb5a280379bdc2645dcbd15d7f59805334d8",
+  "outcome": "chunks",
+  "chunks": 6
+ },
+ "govdocs1/000840.pdf": {
+  "sha256": "f9a5a2177820c315035b94d65a7c5e43ff869e048d5521ba41f18d69b905696b",
+  "outcome": "chunks",
+  "chunks": 6
+ },
+ "govdocs1/000845.swf": {
+  "sha256": "3b82223ad641d704a61c7790375e58bd4b52936beab5a7f7ba7b90fbad1053e0",
+  "outcome": "UnsupportedFileType",
+  "message": ".swf"
+ },
+ "govdocs1/000854.pdf": {
+  "sha256": "645c31446942754432013bc38ee07bcf101df4bf6c7a919a89d1ae8d2db06c94",
+  "outcome": "chunks",
+  "chunks": 37
+ },
+ "govdocs1/000861.txt": {
+  "sha256": "d997af54928b39a5b391d62d5e85fc8b12c1b4929638407f6a14f616a097f30f",
+  "outcome": "chunks",
+  "chunks": 28
+ },
+ "govdocs1/000865.gz": {
+  "sha256": "03d8aac0f03375185ec16cbb97d391de33199e6acb24e574b94971034466976b",
+  "outcome": "UnsupportedFileType",
+  "message": ".gz"
+ },
+ "govdocs1/000869.jpg": {
+  "sha256": "ab0b6c6a2576e33a3e18e00bf44adf7746e36ce0859d4e443bf4d1836d4a9f21",
+  "outcome": "UnsupportedFileType",
+  "message": ".jpg"
+ },
+ "govdocs1/000879.jpg": {
+  "sha256": "b29c9617510103165b3d76f47067e1ad6cc4337c170e886903779634160fb374",
+  "outcome": "UnsupportedFileType",
+  "message": ".jpg"
+ },
+ "govdocs1/000886.pdf": {
+  "sha256": "3eeb6d35f1e07ee70a5c44603ab17c79910f1a5f4a7dafb79d33c761430c28c2",
+  "outcome": "chunks",
+  "chunks": 23
+ },
+ "govdocs1/000890.jpg": {
+  "sha256": "902ef7c71714751141bb929624016cae2ccd19d5e06921e14c1d5f6f5d764a2d",
+  "outcome": "UnsupportedFileType",
+  "message": ".jpg"
+ },
+ "govdocs1/000896.jpg": {
+  "sha256": "4162fc3ece8cfd0e0f4a3098bc97fbc0b8f880478b36eedfb5b78a09eae67036",
+  "outcome": "UnsupportedFileType",
+  "message": ".jpg"
+ },
+ "govdocs1/000900.jpg": {
+  "sha256": "bef48b3e3c218e3804b44f4f3e68d6fc0aa6e20a685a980f9320651d488dc700",
+  "outcome": "UnsupportedFileType",
+  "message": ".jpg"
+ },
+ "govdocs1/000903.jpg": {
+  "sha256": "094d5b6b71a3017ca2ee6c47bf887b9d0cd7a25176a73ad3f2ea48d839624401",
+  "outcome": "UnsupportedFileType",
+  "message": ".jpg"
+ },
+ "govdocs1/000906.jpg": {
+  "sha256": "b9cfeb6c379e1e7d66feb835b80818858c6b5dbdfc366be90c3a0b486ecc02b0",
+  "outcome": "UnsupportedFileType",
+  "message": ".jpg"
+ },
+ "govdocs1/000922.java": {
+  "sha256": "4dd8e42a51e740db8fed66be4d907cef5f7ed169872550a557c0c8e13ca8c44d",
+  "outcome": "UnsupportedFileType",
+  "message": ".java"
+ },
+ "govdocs1/000923.xml": {
+  "sha256": "1ad92d9b571aaef0be08ceab4bf8690c4e46e3070db7ede2f49c44737fd7d9c9",
+  "outcome": "chunks",
+  "chunks": 11
+ },
+ "govdocs1/000925.txt": {
+  "sha256": "eba6846ab9f9531d23e02dd1670894435c767663f4018e9bd590c077416526eb",
+  "outcome": "chunks",
+  "chunks": 380
+ },
+ "govdocs1/000926.txt": {
+  "sha256": "f55976909eed77cff55f4f8714588da6dd71a2cb61f8eceb9c26d52cdb246e8e",
+  "outcome": "chunks",
+  "chunks": 204
+ },
+ "govdocs1/000931.txt": {
+  "sha256": "39a8f92501bbd0e55558d101856d627332faaa5374bdaaa3e71bfa5ea6e8fff0",
+  "outcome": "chunks",
+  "chunks": 646
+ },
+ "govdocs1/000932.txt": {
+  "sha256": "a50b8702707638754f079eb1ad05066bd9daa3e226d31cb1a3b439d1f96e35ed",
+  "outcome": "chunks",
+  "chunks": 691
+ },
+ "govdocs1/000940.txt": {
+  "sha256": "6c148e4dca97dc001def6bbedd554d5f436e4b0be1745cbea64e5629d94e5073",
+  "outcome": "chunks",
+  "chunks": 112
+ },
+ "govdocs1/000942.txt": {
+  "sha256": "468cad403ce1e43c78b922dea07cc79c12d89ea2fd6468ab7aaf210fd761e795",
+  "outcome": "chunks",
+  "chunks": 364
+ },
+ "govdocs1/000945.pdf": {
+  "sha256": "26a41dba70978f47e280a0b3f8b5091a9d361f21fdc5d7d7f4ed9af734a2d9cf",
+  "outcome": "chunks",
+  "chunks": 11
+ },
+ "govdocs1/000948.doc": {
+  "sha256": "429da9d941d73289cb18144ca2b359b6a194fc36e23982bbbf4e374c71a3ff54",
+  "outcome": "UnsupportedFileType",
+  "message": ".doc"
+ },
+ "govdocs1/000950.doc": {
+  "sha256": "6f68b970f844f540764c1f9ded5871018cc24ede797cfa918e4f26b2f75adc89",
+  "outcome": "UnsupportedFileType",
+  "message": ".doc"
+ },
+ "govdocs1/000958.doc": {
+  "sha256": "e4ea5389a69e6d832b861bbeb5800b82d826831809ba9f294d95d4f958e5e102",
+  "outcome": "UnsupportedFileType",
+  "message": ".doc"
+ },
+ "govdocs1/000959.xls": {
+  "sha256": "6825063abfd9255c9d91cb676371bd2eb232f21b4d42788414c1b3f4115df492",
+  "outcome": "UnsupportedFileType",
+  "message": ".xls"
+ },
+ "govdocs1/000963.doc": {
+  "sha256": "2a03d35633b68410c9b02b2ad801ce25ffb24d7ae2215213719261fa450933a3",
+  "outcome": "UnsupportedFileType",
+  "message": ".doc"
+ },
+ "govdocs1/000972.gif": {
+  "sha256": "a3c6b529fb0b303dff527c43cb8d13673887fbfcbea14cc703b720c55a950501",
+  "outcome": "UnsupportedFileType",
+  "message": ".gif"
+ },
+ "govdocs1/000975.xml": {
+  "sha256": "0b87ee622509e144a7e6a88a56ff2aead66bb0f79ace6f0f8b2111dea7a0dfa3",
+  "outcome": "chunks",
+  "chunks": 18
+ },
+ "govdocs1/000978.xml": {
+  "sha256": "9bf86984b537ee76dec1196f444520ebcf0107d2f5fb3f3e0571c66f9d4c3f00",
+  "outcome": "chunks",
+  "chunks": 100
+ },
+ "govdocs1/000980.ps": {
+  "sha256": "7f940e6c1b67c913733ba7ed996fb109730cbe706c83c1f1063e1c63651ac6dc",
+  "outcome": "UnsupportedFileType",
+  "message": ".ps"
+ },
+ "govdocs1/000988.ppt": {
+  "sha256": "ad349cc709b5c9ba4344060b10ee9cc7d67a183e83499b06c217ebb09cec7201",
+  "outcome": "UnsupportedFileType",
+  "message": ".ppt"
+ },
+ "govdocs1/000989.ppt": {
+  "sha256": "6ba4088e96d3c7c6bc088d8893e01034914283ddba1d5d69489937ea20e88a03",
+  "outcome": "UnsupportedFileType",
+  "message": ".ppt"
+ },
+ "govdocs1/000990.ppt": {
+  "sha256": "3116a6156ae1c508b55d4994996eea52066d1712c508063fa7b413f8d45a5553",
+  "outcome": "UnsupportedFileType",
+  "message": ".ppt"
+ },
+ "govdocs1/000991.ppt": {
+  "sha256": "c6fc9f8fc5f13d0f7abbeea2c8055a10e7b4c97aed02bcc377bf42a85417b18a",
+  "outcome": "UnsupportedFileType",
+  "message": ".ppt"
+ },
+ "govdocs1/000996.ps": {
+  "sha256": "16802c6cef17f9c2cf54455afcf23eb9f369a5f1edb676a213e2d0f7d5aff33f",
+  "outcome": "UnsupportedFileType",
+  "message": ".ps"
+ }
+}

@@ -1,6 +1,6 @@
 """Synthetic SharePoint dataset (documents, permissions, personas) used by the evals. `acl` mirrors what the crawler would store."""
 from dataclasses import dataclass
-from importlib.resources import files
+from pathlib import Path
 
 from sharepoint_rag import acl
 
@@ -13,8 +13,12 @@ class Doc:
     acl: tuple[str, ...]
     resolved: bool = True  # False: the crawler couldn't resolve every grant (e.g. a SharePoint site group)
 
+    @property
+    def path(self) -> Path:
+        return Path(__file__).with_name("dataset") / self.name
+
     def read(self) -> bytes:
-        return files("sharepoint_evals").joinpath("dataset", self.name).read_bytes()
+        return self.path.read_bytes()
 
 
 DOCS = [

@@ -9,12 +9,15 @@ Rules (see docs/architecture.md):
 import hashlib
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import PurePosixPath
 
 import psycopg
 from psycopg import sql
 
-from . import acl, generations, queue
+from . import acl, generations, language, queue
 from .acl import AclRead
+from .chunk import chunk_sections
+from .extract import extract
 from .generations import Generation
 
 
@@ -39,6 +42,25 @@ class ChunkRow:
     text: str
     heading_path: str | None
     language: str  # Postgres text search config: english | spanish | simple
+
+
+# The version of what chunk_rows makes of a file. Bump it whenever that changes (extraction, chunking, headings,
+# language detection): files indexed by an older version are then no longer current, and each drive's next sync
+# is a full crawl, so unchanged files are re-indexed too. 2: the document title starts every heading path.
+INDEX_VERSION = 2
+
+
+def chunk_rows(name: str, data: bytes, title: str | None = None) -> list[ChunkRow]:
+    """What the index stores for a file: its non-blank chunks, numbered in order, each with its text-search
+    language. Raises ExtractionError. Shared by the sync-worker and the evals, so they index files the same way.
+
+    Every chunk's heading path starts with the document's title (by default its file name without the extension):
+    a PDF page's own heading is just "Page 52", so without it neither the embedding nor keyword search knows which
+    company's filing, or which year's policy, the page belongs to."""
+    title = PurePosixPath(name).stem if title is None else title
+    chunks = [c for c in chunk_sections(extract(name, data)) if c.text.strip()]
+    return [ChunkRow(n, c.text, " > ".join(p for p in (title, c.heading_path) if p) or None, language.detect(c.text))
+            for n, c in enumerate(chunks)]
 
 
 def acl_hash(principals: list[str]) -> str:
@@ -67,15 +89,15 @@ async def upsert_seen(conn: psycopg.AsyncConnection, items: list[Item], crawl_id
 
 
 async def is_current(conn: psycopg.AsyncConnection, drive_id: str, item_id: str, etag: str | None) -> bool:
-    """True if this version of the file is already indexed in every live generation."""
+    """True if this version of the file is already indexed, by this INDEX_VERSION, in every live generation."""
     if etag is None:
         return False
     row = await (await conn.execute(
-        "SELECT s.etag = %s AND s.status IN ('indexed', 'skipped') AND NOT EXISTS ("
+        "SELECT s.etag = %s AND s.status IN ('indexed', 'skipped') AND s.index_version IS NOT DISTINCT FROM %s AND NOT EXISTS ("
         "  SELECT 1 FROM index_generations g WHERE g.status = ANY(%s) AND NOT EXISTS ("
         "    SELECT 1 FROM source_generations sg WHERE sg.source_id = s.id AND sg.generation_id = g.id AND sg.etag = %s)) "
         "FROM sources s WHERE s.drive_id = %s AND s.item_id = %s",
-        (etag, list(generations.LIVE), etag, drive_id, item_id),
+        (etag, INDEX_VERSION, list(generations.LIVE), etag, drive_id, item_id),
     )).fetchone()
     return bool(row and row[0])
 
@@ -88,9 +110,10 @@ async def not_current(conn: psycopg.AsyncConnection, drive_id: str, versions: li
         "SELECT v.item_id FROM unnest(%s::text[], %s::text[]) AS v(item_id, etag) "
         "LEFT JOIN sources s ON s.drive_id = %s AND s.item_id = v.item_id "
         "WHERE v.etag IS NULL OR s.id IS NULL OR s.etag IS DISTINCT FROM v.etag OR s.status NOT IN ('indexed', 'skipped') "
+        "OR s.index_version IS DISTINCT FROM %s "
         "OR EXISTS (SELECT 1 FROM index_generations g WHERE g.status = ANY(%s) AND NOT EXISTS ("
         "  SELECT 1 FROM source_generations sg WHERE sg.source_id = s.id AND sg.generation_id = g.id AND sg.etag = v.etag))",
-        ([i for i, _ in versions], [e for _, e in versions], drive_id, list(generations.LIVE)),
+        ([i for i, _ in versions], [e for _, e in versions], drive_id, INDEX_VERSION, list(generations.LIVE)),
     )).fetchall()
     return [r[0] for r in rows]
 
@@ -187,8 +210,9 @@ async def write_index(
         languages = [c.language for c in chunks if c.language != "simple"]
         await conn.execute(
             "UPDATE sources SET etag = %s, modified_at = %s, indexed_at = now(), status = %s, status_note = %s, "
-            "language = %s, attempts = 0 WHERE id = %s",
-            (item.etag, item.modified_at, status, note, max(set(languages), key=languages.count) if languages else None, source_id),
+            "language = %s, attempts = 0, index_version = %s WHERE id = %s",
+            (item.etag, item.modified_at, status, note, max(set(languages), key=languages.count) if languages else None,
+             INDEX_VERSION, source_id),
         )
     return "written"
 
@@ -240,10 +264,12 @@ async def delete_items(conn: psycopg.AsyncConnection, drive_id: str, item_ids: l
 
 
 async def finish_full_crawl(conn: psycopg.AsyncConnection, drive_id: str, crawl_id: str) -> int:
-    """After a full crawl reached its last page: files it never saw are gone from SharePoint."""
+    """After a full crawl reached its last page: files it never saw are gone from SharePoint, and every file it saw
+    has been checked against INDEX_VERSION."""
     cur = await conn.execute(
         "DELETE FROM sources WHERE drive_id = %s AND last_crawl_id IS DISTINCT FROM %s", (drive_id, crawl_id)
     )
+    await conn.execute("UPDATE sync_state SET index_version = %s WHERE drive_id = %s", (INDEX_VERSION, drive_id))
     return cur.rowcount
 
 

@@ -41,6 +41,7 @@ ALTER TABLE sources ADD COLUMN IF NOT EXISTS acl_synced_at timestamptz;
 ALTER TABLE sources ADD COLUMN IF NOT EXISTS language text;
 ALTER TABLE sources ADD COLUMN IF NOT EXISTS last_crawl_id text;
 ALTER TABLE sources ADD COLUMN IF NOT EXISTS attempts int NOT NULL DEFAULT 0;
+ALTER TABLE sources ADD COLUMN IF NOT EXISTS index_version int;  -- index_store.INDEX_VERSION that wrote the chunks
 CREATE INDEX IF NOT EXISTS sources_parent_idx ON sources (drive_id, parent_id);
 CREATE INDEX IF NOT EXISTS sources_status_idx ON sources (status);
 
@@ -54,6 +55,7 @@ CREATE TABLE IF NOT EXISTS sync_state (
 ALTER TABLE sync_state ADD COLUMN IF NOT EXISTS next_link text;
 ALTER TABLE sync_state ADD COLUMN IF NOT EXISTS last_error text;
 ALTER TABLE sync_state ADD COLUMN IF NOT EXISTS crawl_id text;
+ALTER TABLE sync_state ADD COLUMN IF NOT EXISTS index_version int;  -- INDEX_VERSION of the drive's last full crawl
 
 -- An index generation = one embedding model. Live = building or active; exactly one is active at a time.
 CREATE TABLE IF NOT EXISTS index_generations (

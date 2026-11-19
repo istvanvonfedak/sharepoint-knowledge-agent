@@ -40,11 +40,17 @@ def table(generation_id: int) -> sql.Identifier:
     return sql.Identifier(f"chunks_g{int(generation_id)}")
 
 
+# What keyword search matches: the chunk's heading path and text, as both the exact (simple) tokens and the stemmed
+# ones for the chunk's language, so "contratos" matches "contrato" in Spanish text while exact identifiers still match
+# as typed. The heading path is included because it holds a document's title, an email's subject or a section name,
+# often the only place an identifier ("Ticket INC-48213") appears; the embedding text includes it too.
+_TSV_TEXT = "coalesce(heading_path, '') || ' ' || text"
+TSV = f"to_tsvector('simple', {_TSV_TEXT}) || to_tsvector(language, {_TSV_TEXT})"
+
+
 def _ddl(generation_id: int, dimensions: int) -> sql.Composed:
     t = table(generation_id)
     name = f"chunks_g{int(generation_id)}"
-    # tsv holds both the exact (simple) tokens and the stemmed ones for the chunk's language, so "contratos"
-    # matches "contrato" in Spanish text while exact identifiers still match as typed.
     return sql.SQL("""
         CREATE TABLE IF NOT EXISTS {t} (
             id           bigserial PRIMARY KEY,
@@ -54,7 +60,7 @@ def _ddl(generation_id: int, dimensions: int) -> sql.Composed:
             heading_path text,
             language     regconfig NOT NULL DEFAULT 'simple',
             embedding    vector({dims}) NOT NULL,
-            tsv          tsvector GENERATED ALWAYS AS (to_tsvector('simple', text) || to_tsvector(language, text)) STORED,
+            tsv          tsvector GENERATED ALWAYS AS ({tsv_expr}) STORED,
             acl          text[] NOT NULL DEFAULT '{{}}',
             metadata     jsonb NOT NULL DEFAULT '{{}}',
             UNIQUE (source_id, ordinal)
@@ -63,7 +69,7 @@ def _ddl(generation_id: int, dimensions: int) -> sql.Composed:
         CREATE INDEX IF NOT EXISTS {tsv} ON {t} USING gin (tsv);
         CREATE INDEX IF NOT EXISTS {acl} ON {t} USING gin (acl);
     """).format(
-        t=t, dims=sql.Literal(int(dimensions)),
+        t=t, dims=sql.Literal(int(dimensions)), tsv_expr=sql.SQL(TSV),
         emb=sql.Identifier(f"{name}_embedding_idx"), tsv=sql.Identifier(f"{name}_tsv_idx"), acl=sql.Identifier(f"{name}_acl_idx"),
     )
 
@@ -96,13 +102,46 @@ def ensure_initial(conn: psycopg.Connection) -> None:
 
 
 def ensure_tables(conn: psycopg.Connection) -> None:
-    """Re-creates any live generation's table that is missing (e.g. after a partial restore). Only missing ones:
-    the DDL's CREATE INDEX IF NOT EXISTS would lock an existing table on every start."""
+    """Re-creates any live generation's table that is missing (e.g. after a partial restore), and rebuilds the
+    keyword column of one whose expression is out of date. Only those: the DDL's CREATE INDEX IF NOT EXISTS would
+    lock an existing table on every start, while reading the column's expression from the catalog takes no lock."""
     for gen_id, dims in conn.execute(
         "SELECT id, dimensions FROM index_generations WHERE status = ANY(%s)", (list(LIVE),)
     ).fetchall():
-        if not conn.execute("SELECT to_regclass(%s) IS NOT NULL", (f"chunks_g{int(gen_id)}",)).fetchone()[0]:
+        name = f"chunks_g{int(gen_id)}"
+        if not conn.execute("SELECT to_regclass(%s) IS NOT NULL", (name,)).fetchone()[0]:
             conn.execute(_ddl(gen_id, dims))
+        elif _tsv_outdated(conn, name):
+            _rebuild_tsv(conn, gen_id)
+
+
+def _tsv_expression(conn: psycopg.Connection, name: str) -> str:
+    return conn.execute(
+        "SELECT pg_get_expr(d.adbin, d.adrelid) FROM pg_attrdef d "
+        "JOIN pg_attribute a ON a.attrelid = d.adrelid AND a.attnum = d.adnum WHERE d.adrelid = %s::regclass AND a.attname = 'tsv'",
+        (name,),
+    ).fetchone()[0]
+
+
+def _tsv_outdated(conn: psycopg.Connection, name: str) -> bool:
+    """Postgres stores the expression in its own normal form, so compare with what it makes of TSV."""
+    with conn.transaction():
+        conn.execute(f"CREATE TEMP TABLE _tsv_probe (heading_path text, text text, language regconfig, "
+                     f"tsv tsvector GENERATED ALWAYS AS ({TSV}) STORED) ON COMMIT DROP")
+        wanted = _tsv_expression(conn, "_tsv_probe")
+    return _tsv_expression(conn, name) != wanted
+
+
+def _rebuild_tsv(conn: psycopg.Connection, generation_id: int) -> None:
+    """Recomputes the keyword column (and its index) for every row: one table rewrite, under an exclusive lock.
+    Fine while the project runs locally. On a deployed index of millions of chunks it would block search for the
+    rewrite and run on whichever service starts first: change the expression through a new generation instead
+    (`generations create`, backfill, activate), which builds the new table beside the live one."""
+    t, name = table(generation_id), f"chunks_g{int(generation_id)}"
+    with conn.transaction():
+        conn.execute(sql.SQL("ALTER TABLE {t} DROP COLUMN tsv").format(t=t))
+        conn.execute(sql.SQL("ALTER TABLE {t} ADD COLUMN tsv tsvector GENERATED ALWAYS AS ({e}) STORED").format(t=t, e=sql.SQL(TSV)))
+        conn.execute(sql.SQL("CREATE INDEX {i} ON {t} USING gin (tsv)").format(i=sql.Identifier(f"{name}_tsv_idx"), t=t))
 
 
 def _row(r) -> Generation:
