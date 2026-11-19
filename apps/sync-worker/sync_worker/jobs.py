@@ -25,7 +25,7 @@ from sharepoint_rag import embeddings, generations, index_store, inference, queu
 from sharepoint_rag.acl import AclRead
 from sharepoint_rag.chunk import Chunk
 from sharepoint_rag.embeddings import RateLimited
-from sharepoint_rag.extract import EXTENSIONS, ExtractionError
+from sharepoint_rag.extract import EXTENSIONS, ExtractionError, truncation_note
 from sharepoint_rag.index_store import Item
 
 from . import config, permissions
@@ -354,8 +354,9 @@ async def index_item(ctx: Context, payload: dict) -> None:
             acl_read = AclRead((), False, datetime.now(timezone.utc))
         await _record_failure(ctx, item, acl_read, f"{type(e).__name__}: {e}")
         raise
+    note = truncation_note(c.text for c in chunks)  # a file cut off at a limit says so, rather than look whole
     async with ctx.pool.connection() as conn:
-        result = await index_store.write_index(conn, item, acl_read, chunks, vectors)
+        result = await index_store.write_index(conn, item, acl_read, chunks, vectors, note=note)
         if source is not None:
             await index_store.clear_progress(conn, list(vectors), [source])
     if result == "gone":

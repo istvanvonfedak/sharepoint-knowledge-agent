@@ -75,6 +75,9 @@ def _status() -> None:
         show("Files by status and permission state",
              "SELECT status, acl_status, count(*) FROM sources WHERE status <> 'folder' GROUP BY 1, 2 ORDER BY 1, 2")
         show("Generations", "SELECT id, status, model, dimensions FROM index_generations ORDER BY id")
+        show("Partly indexed files (cut off at an extraction limit)",
+             "SELECT name, left(status_note, 120) FROM sources WHERE status = 'indexed' AND status_note LIKE 'partly indexed:%' "
+             "ORDER BY name LIMIT 20")
         show("Recent file errors", "SELECT name, attempts, left(status_note, 120) FROM sources WHERE status = 'error' "
              "ORDER BY indexed_at DESC NULLS LAST LIMIT 10")
         show("Failed jobs (last day)", "SELECT kind, payload, left(last_error, 120) FROM jobs WHERE state = 'failed' "

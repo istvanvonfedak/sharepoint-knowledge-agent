@@ -4,6 +4,7 @@ import zipfile
 import pytest
 from sharepoint_rag.chunk import chunk_sections
 from sharepoint_rag.extract import ExtractionError, Section, UnsupportedFileType, extract
+from tests.testing_support import text_pdf
 
 W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
 A = 'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"'
@@ -98,6 +99,17 @@ def test_xlsx_and_pdf():
            b"4 0 obj<</Length " + str(len(stream)).encode() + b">>stream\n" + stream + b"\nendstream endobj\n"
            b"5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R/Size 6>>\nstartxref\n0\n%%EOF")
     assert "Hello PDF" in extract("a.pdf", pdf)[0].text
+
+
+def test_a_pdf_past_the_page_limit_says_how_much_was_read(monkeypatch):
+    from sharepoint_rag import extract as extract_module
+    from sharepoint_rag.extract import truncation_note
+
+    monkeypatch.setattr(extract_module, "MAX_PDF_PAGES", 2)
+    sections = extract("long.pdf", text_pdf(3))
+    assert [s.heading_path for s in sections] == ["Page 1", "Page 2", ""]
+    assert truncation_note(s.text for s in sections) == "partly indexed: only the first 2 of 3 pages were indexed"
+    assert truncation_note(s.text for s in extract("short.pdf", text_pdf(2))) is None
 
 
 def test_unsupported_and_blank():

@@ -401,6 +401,20 @@ async def test_a_reindex_keeps_the_vectors_of_unchanged_chunks(ctx, monkeypatch)
     assert 0 < len(embedded) < (await rows(ctx, "SELECT count(*) FROM chunks_g1"))[0][0]
 
 
+async def test_a_cut_off_file_is_marked_partly_indexed(ctx, monkeypatch):
+    """A file past an extraction limit is indexed as far as it goes, and its status says it isn't whole."""
+    from sharepoint_rag import extract as extract_module
+    from tests.testing_support import text_pdf
+
+    monkeypatch.setattr(extract_module, "MAX_PDF_PAGES", 2)
+    g = ctx.graph
+    g.items, g.perms, g.content = {"a": raw("a", name="manual.pdf")}, {"a": []}, {"a": text_pdf(3)}
+    await seed(ctx, "a")
+    await jobs.index_item(ctx, {"drive_id": "d1", "item_id": "a"})
+    assert await rows(ctx, "SELECT status, status_note FROM sources") == [
+        ("indexed", "partly indexed: only the first 2 of 3 pages were indexed")]
+
+
 async def test_oversized_download_is_permanent(ctx):
     g = ctx.graph
     g.items, g.perms, g.content = {"a": raw("a")}, {"a": []}, {"a": b"x"}

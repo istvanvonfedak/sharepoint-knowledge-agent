@@ -47,7 +47,8 @@ class ChunkRow:
 # The version of what chunk_rows makes of a file. Bump it whenever that changes (extraction, chunking, headings,
 # language detection): files indexed by an older version are then no longer current, and each drive's next sync
 # is a full crawl, so unchanged files are re-indexed too. 2: the document title starts every heading path.
-INDEX_VERSION = 2
+# 3: PDFs are read to 5,000 pages, not 500.
+INDEX_VERSION = 3
 
 
 def chunk_rows(name: str, data: bytes, title: str | None = None) -> list[ChunkRow]:

@@ -10,8 +10,11 @@ import defusedxml.ElementTree as ElementTree
 
 MAX_FILE_BYTES = 50_000_000  # whole-file cap; openpyxl/pypdf decompress without limits of their own
 MAX_XML_BYTES = 50_000_000  # decompressed size cap per XML part (zip-bomb guard)
-MAX_PDF_PAGES = 500
+# A guard against pathological files, not a budget: real manuals run to 1,800 pages, and a 1,500-page one
+# extracts in about 4 s and 260 MB. Pages past it are left out, and the file's status note says so.
+MAX_PDF_PAGES = 5000
 MAX_XLSX_ROWS = 5000
+TRUNCATED = "[Truncated: "  # starts the marker section a cut-off file ends with
 TEXT_EXTENSIONS = {".txt", ".csv", ".json", ".xml", ".log"}
 EXTENSIONS = TEXT_EXTENSIONS | {".md", ".html", ".htm", ".docx", ".pptx", ".pdf", ".xlsx"}  # everything extract() reads
 _W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
@@ -30,6 +33,12 @@ class UnsupportedFileType(ExtractionError):
 class Section:
     heading_path: str  # e.g. "Policies > Leave" or "Slide 3"
     text: str
+
+
+def truncation_note(texts) -> str | None:
+    """The cut-off notes among a file's extracted texts, or None if it was extracted whole."""
+    notes = [t.strip() for t in texts if t.lstrip().startswith(TRUNCATED)]
+    return "partly indexed: " + "; ".join(n.removeprefix(TRUNCATED).rstrip("]") for n in notes) if notes else None
 
 
 def extract(name: str, data: bytes) -> list[Section]:
@@ -258,7 +267,7 @@ def _pdf(data: bytes) -> list[Section]:
         for i, page in enumerate(reader.pages[:MAX_PDF_PAGES], 1)
     ]
     if len(reader.pages) > MAX_PDF_PAGES:
-        sections.append(Section("", f"[Truncated: only the first {MAX_PDF_PAGES} of {len(reader.pages)} pages were indexed]"))
+        sections.append(Section("", f"{TRUNCATED}only the first {MAX_PDF_PAGES} of {len(reader.pages)} pages were indexed]"))
     return sections
 
 
@@ -272,7 +281,7 @@ def _xlsx(data: bytes) -> list[Section]:
             rows = []
             for n, row in enumerate(ws.iter_rows(values_only=True), 1):
                 if n > MAX_XLSX_ROWS:
-                    rows.append(f"[Truncated: only the first {MAX_XLSX_ROWS} rows of this sheet were indexed]")
+                    rows.append(f"{TRUNCATED}only the first {MAX_XLSX_ROWS} rows of this sheet were indexed]")
                     break
                 if any(c is not None for c in row):
                     rows.append("\t".join("" if c is None else str(c) for c in row))
