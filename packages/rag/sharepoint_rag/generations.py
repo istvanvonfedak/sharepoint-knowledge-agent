@@ -45,7 +45,13 @@ def table(generation_id: int) -> sql.Identifier:
 # as typed. The heading path is included because it holds a document's title, an email's subject or a section name,
 # often the only place an identifier ("Ticket INC-48213") appears; the embedding text includes it too.
 _TSV_TEXT = "coalesce(heading_path, '') || ' ' || text"
-TSV = f"to_tsvector('simple', {_TSV_TEXT}) || to_tsvector(language, {_TSV_TEXT})"
+# Digit groups joined by hyphens are also indexed without them, so a number matches however it is written:
+# "2520-01-149-1221" and "2520011491221" (a stock number as an index page and a parts list print it), or
+# "INV-2024-0173" and "INV-20240173". Only tokens with a digit-hyphen-digit are kept for this; search.compact_ids
+# turns the query's into the same form.
+_DIGIT_GROUPS = rf"""regexp_replace({_TSV_TEXT}, '(^|\s)(?!\S*[0-9]-[0-9])\S+', ' ', 'g')"""
+TSV = (f"to_tsvector('simple', {_TSV_TEXT}) || to_tsvector(language, {_TSV_TEXT}) || "
+       rf"""to_tsvector('simple', regexp_replace({_DIGIT_GROUPS}, '([0-9])-(?=[0-9])', '\1', 'g'))""")
 
 
 def _ddl(generation_id: int, dimensions: int) -> sql.Composed:

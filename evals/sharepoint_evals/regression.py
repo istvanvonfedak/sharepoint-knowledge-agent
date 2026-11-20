@@ -3,7 +3,9 @@
 - verification_regression: layer 2. A file the index says the caller may read but SharePoint now denies
   (access revoked since indexing) is never returned, and a failing access check returns nothing.
 - extraction_regression: key facts survive extract+chunk for every dataset doc in md/html/docx form.
-- acl_regression: restricted chunks never appear for callers without access, in any search mode.
+- acl_regression: restricted chunks never appear for callers without access, in any search mode, nor in the files a
+  sharepoint_ask sandbox session is given (search_with_files + read_files, with layer 2 letting everything through,
+  so layer 1 alone must hold).
 """
 import io
 import json
@@ -17,11 +19,12 @@ from inspect_ai.scorer import CORRECT, INCORRECT, Score, Target, accuracy, score
 from inspect_ai.solver import Generate, TaskState, solver
 from sharepoint_rag.chunk import MAX_CHARS, chunk_sections
 from sharepoint_rag.extract import extract
+from sharepoint_rag.retriever import PostgresRetriever
 
 from sharepoint_evals.common import MOCK, set_output
 from sharepoint_evals.corpus import synthetic
 from sharepoint_evals.dataset import DOCS, EVERYONE
-from sharepoint_evals.retrieval import SimulatedOutage, allow, ranked_docs, retrieve
+from sharepoint_evals.retrieval import SimulatedOutage, allow, pool, ranked_docs, retrieve
 
 KEY_FACTS = {
     "leave-policy.md": ["22 working days", "carried over", "HR portal", "medical certificate"],
@@ -149,7 +152,15 @@ def acl_probe():
     async def solve(state: TaskState, generate: Generate) -> TaskState:
         m = state.metadata
         corpus = synthetic()
-        hits = await retrieve(corpus, state.input_text, corpus.personas[m["persona"]], m["mode"], k=20)
+        principals = corpus.personas[m["persona"]]
+        if m["mode"] == "sandbox":  # every file a session would hold, and every chunk written to it
+            retriever = PostgresRetriever(await pool(corpus), mode="hybrid")
+            everything = allow({d.name for d in DOCS})
+            hits, files = await retriever.search_with_files(state.input_text, principals=principals, verify=everything, k=20)
+            chunks = await retriever.read_files(files, principals=principals, verify=everything)
+            hits = hits + files + [h for file in chunks.values() for h in file]
+        else:
+            hits = await retrieve(corpus, state.input_text, principals, m["mode"], k=20)
         state.metadata["returned"] = ranked_docs(hits)
         set_output(state, ", ".join(state.metadata["returned"]))
         return state
@@ -185,7 +196,7 @@ def acl_regression() -> Task:
             metadata={"persona": persona, "mode": mode, "forbidden": forbidden, "must_include": must},
         )
         for i, (persona, query, forbidden, must) in enumerate(ACL_CASES)
-        for mode in ("vector", "keyword", "hybrid")
+        for mode in ("vector", "keyword", "hybrid", "sandbox")
     ]
     return Task(dataset=MemoryDataset(samples), solver=acl_probe(), scorer=acl_respected(), model=MOCK)
 

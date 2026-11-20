@@ -35,9 +35,10 @@ stats = {"hits": 0, "misses": 0}
 async def _paced(model: str, texts: list[str], task: str, dimensions: int) -> list[list[float]]:
     """The real embedder, kept under PER_MINUTE texts a minute, waiting out a quota error rather than failing.
     Waiting for room in the budget is not an attempt; only a quota error (another process using the same key)
-    counts toward QUOTA_RETRIES."""
+    counts toward QUOTA_RETRIES. OpenAI's quota is in tokens, which its backend paces itself."""
+    paced = not model.startswith("openai:")
     for attempt in range(QUOTA_RETRIES):
-        while True:
+        while paced:
             while _sent and time.monotonic() - _sent[0][0] > 60:
                 _sent.popleft()
             if not _sent or sum(n for _, n in _sent) + len(texts) <= PER_MINUTE:

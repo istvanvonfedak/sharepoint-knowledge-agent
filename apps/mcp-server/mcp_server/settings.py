@@ -35,19 +35,40 @@ SEARCH_PER_MINUTE = _int("RATE_SEARCH_PER_MINUTE", 30)
 ASK_PER_HOUR = _int("RATE_ASK_PER_HOUR", 20)
 ASK_TOKENS_PER_DAY = _int("RATE_ASK_TOKENS_PER_DAY", 2_000_000)
 
-# sharepoint_ask sends text the user may read to the model's provider: Gemini by default, with GEMINI_API_KEY
-# (the embedding key). Without a key it stays off; ASK_MODEL=none turns it off explicitly. Any other LangChain
-# chat model works as "<provider>:<model>" once its langchain-<provider> package is installed in the image and
-# its own key variable is set (e.g. anthropic:claude-opus-5-5 with ANTHROPIC_API_KEY).
-DEFAULT_ASK_MODEL = "google_genai:gemini-3.8-flash"
+# sharepoint_ask sends text the user may read to the model's provider: OpenAI by default, with OPENAI_API_KEY (the
+# embedding key). Without a key it stays off; ASK_MODEL=none turns it off explicitly. Any other LangChain chat model
+# works as "<provider>:<model>" once its langchain-<provider> package is installed in the image and its own key
+# variable is set (e.g. google_genai:gemini-3.5-flash-lite with GEMINI_API_KEY, anthropic:claude-opus-5-5 with
+# ANTHROPIC_API_KEY).
+# GPT-6 Luna at medium effort: on the live bench, as many cited answers as gemini-3.5-flash-lite at 40% of its cost,
+# and an eighth of gemini-3.8-flash's (docs/code-interpreter.md, Measurements).
+DEFAULT_ASK_MODEL = "openai:gpt-6-luna"
+DEFAULT_ASK_MODEL_KWARGS = {"reasoning_effort": "medium"}
 ASK_MODEL = os.environ.get("ASK_MODEL", DEFAULT_ASK_MODEL).strip()
 if ASK_MODEL.lower() == "none":
     ASK_MODEL = ""
 # langchain-google-genai reads GOOGLE_API_KEY, then GEMINI_API_KEY.
 if ASK_MODEL.startswith("google_genai:") and not (os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")):
     ASK_MODEL = ""
-# Extra keyword arguments for init_chat_model, as JSON, e.g. {"temperature": 0} or {"max_tokens": 8000}.
-ASK_MODEL_KWARGS = json.loads(os.environ.get("ASK_MODEL_KWARGS") or "{}")
+if ASK_MODEL.startswith("openai:") and not os.environ.get("OPENAI_API_KEY"):
+    ASK_MODEL = ""
+# Extra keyword arguments for init_chat_model, as JSON, e.g. {"temperature": 0} or {"max_tokens": 8000}. Unset, the
+# default model gets its default effort and any other model none (another provider may not take reasoning_effort).
+_kwargs = os.environ.get("ASK_MODEL_KWARGS")
+ASK_MODEL_KWARGS = (json.loads(_kwargs) if _kwargs
+                    else dict(DEFAULT_ASK_MODEL_KWARGS) if ASK_MODEL == DEFAULT_ASK_MODEL else {})
+# The agent's code interpreter (docs/code-interpreter.md): "off", or "local", the sandbox service at SANDBOX_URL. The
+# files of the user's searches go to it, never to the model; only command output does.
+ASK_SANDBOX = os.environ.get("ASK_SANDBOX", "off").strip().lower() or "off"
+if ASK_SANDBOX == "azure":
+    raise RuntimeError("ASK_SANDBOX=azure isn't built yet (docs/code-interpreter.md); use off or local")
+if ASK_SANDBOX not in ("off", "local"):
+    raise RuntimeError("ASK_SANDBOX must be off or local")
+SANDBOX_URL = os.environ.get("SANDBOX_URL", "http://sandbox:8000")
+SANDBOX_API_KEY = os.environ.get("SANDBOX_API_KEY", "")
+if ASK_SANDBOX == "local" and ASK_MODEL and not SANDBOX_API_KEY:
+    raise RuntimeError("ASK_SANDBOX=local needs SANDBOX_API_KEY, the key the sandbox service was started with")
+# Each `run` is a step. 8 with the sandbox too: 14 measured 56% dearer for little more (docs/code-interpreter.md).
 ASK_MAX_STEPS = _int("ASK_MAX_STEPS", 8)
 # Tokens one sharepoint_ask may use across all its steps (input + output; cache reads count a tenth).
 ASK_MAX_TOKENS = _int("ASK_MAX_TOKENS", 300_000)

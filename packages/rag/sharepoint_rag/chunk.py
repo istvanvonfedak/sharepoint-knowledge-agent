@@ -69,3 +69,41 @@ def chunk_sections(
         if current.strip():
             chunks.append(Chunk(section.heading_path, current))
     return chunks
+
+
+def rejoin(chunks: list[tuple[str | None, str]], overlap: int = OVERLAP_CHARS) -> list[tuple[str | None, str]]:
+    """A file's text back from its chunks, in file order: one (heading_path, text) per run of chunks with the same
+    heading, with the text chunk_sections repeated between neighbours dropped. Only text it is known to have repeated
+    goes: the tail of the previous chunk followed by a line break (the overlap above), or, where a long paragraph was
+    cut, the longest start of the chunk the previous one ends with, if at least half an overlap long. A chunk whose
+    overlap was skipped, or that only starts like the previous one ends by chance, keeps all its text."""
+    return rejoin_spans(chunks, overlap)[0]
+
+
+def rejoin_spans(
+    chunks: list[tuple[str | None, str]], overlap: int = OVERLAP_CHARS
+) -> tuple[list[tuple[str | None, str]], list[tuple[int, int, int]]]:
+    """rejoin's sections, and where each chunk is in them: (section index, start, end), its repeated start included."""
+    # Each section's pieces are joined once at the end: a whole CSV is one section, and joining as we go is
+    # quadratic. The rules compare with the previous chunk alone, as chunk_sections took the overlap from it: a
+    # chunk shorter than the overlap is repeated whole, and the joined text's end would span two chunks.
+    out: list[tuple[str | None, list[str]]] = []
+    spans: list[tuple[int, int, int]] = []
+    prev, length = "", 0
+    for heading, text in chunks:
+        if not out or out[-1][0] != heading:
+            out.append((heading, [text]))
+            spans.append((len(out) - 1, 0, len(text)))
+            prev, length = text, len(text)
+            continue
+        tail = _overlap_tail(prev, overlap)
+        if tail and text.startswith(tail + "\n"):
+            piece, start = text[len(tail):], length - len(tail)
+        else:
+            n = next((n for n in range(min(len(prev), len(text), overlap), overlap // 2 - 1, -1)
+                      if prev.endswith(text[:n])), 0)
+            piece, start = (text[n:], length - n) if n else (f"\n{text}", length + 1)
+        out[-1][1].append(piece)
+        spans.append((len(out) - 1, start, start + len(text)))
+        prev, length = text, length + len(piece)
+    return [(h, "".join(p)) for h, p in out], spans

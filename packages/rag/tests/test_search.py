@@ -68,6 +68,68 @@ async def test_keyword_needs_the_rare_terms_not_any_term(pool):
         assert await keyword(conn, "IT") == ["it"]  # a stopword in Spanish, but the whole query
 
 
+@pytest.mark.parametrize("query", ["2520-01-149-1221", "2520011491221", "NSN 2520-01-149-1221?"])
+async def test_hyphenated_and_plain_numbers_find_each_other(pool, query):
+    """A parts list prints a stock number as 2520011491221, its index as 2520-01-149-1221: either finds both."""
+    async with pool.connection() as conn:
+        await add(conn, "parts", "2 PAHZZ 2520011491221 7X677 930679 .ROLLER ASSEMBLY,CLU 1")
+        await add(conn, "index", "STOCK NUMBER FIG. ITEM 2520-01-149-1221 106 2")
+        await add(conn, "other", "3 PAHZZ 5325011548561 7X677 8627657 .RING,RETAINING 1 and 5310-01-148-2687")
+        assert sorted(await keyword(conn, query)) == ["index", "parts"]
+
+
+def test_only_long_hyphenated_numbers_are_joined_in_queries():
+    assert search.compact_ids("NSN 2520-01-149-1221 and INV-2024-0173") == "NSN 2520011491221 and INV-20240173"
+    assert search.compact_ids("steps 1-2 on page 2-91, TM 9-2320-280-24P") == "steps 1-2 on page 2-91, TM 9232028024P"
+
+
+async def test_hybrid_keeps_exact_matches_only_keyword_search_finds(pool):
+    """The vector list is always full, so a keyword-only hit must still be able to outrank its tail: a part number
+    in a parts table loses to look-alike tables on meaning, and only keyword search knows which table has it."""
+    async with pool.connection() as conn:
+        for i in range(60):
+            await add(conn, f"table{i}", f"SECTION II parts list page {i}: SCREW, WASHER, NUT, BEARING")
+        query_vec = fake_vector("SECTION II parts list page 0: SCREW, WASHER, NUT, BEARING")
+        it = Item("d1", "target", "s1", "target.md", "https://sp/target", "e1", T0)
+        await index_store.upsert_seen(conn, [it], None)
+        await index_store.write_index(conn, it, AclRead(("user:a",), True, T0),
+                                      [ChunkRow(0, "2 PAHZZ 2520011491221 7X677 930679 .ROLLER ASSEMBLY,CLU", None, "simple")],
+                                      {1: [[-x for x in query_vec]]})  # as far from the query as a vector gets
+        hits = await search.search(conn, query_text="930679", query_vec=query_vec, principals=["user:a"], k=5, mode="hybrid")
+        assert "target" in [h.item_id for h in hits]
+
+
+async def test_nearby_returns_the_chunks_around_one_in_file_order(pool):
+    async with pool.connection() as conn:
+        await add(conn, "manual", *[f"page {n}" for n in range(10)])
+        await add(conn, "secret", *[f"page {n}" for n in range(10)], acl=("user:b",))
+        hits = await search.search(conn, query_text="page 4", query_vec=fake_vector("page 4"), principals=["user:a"], mode="keyword")
+        [anchor] = [h for h in hits if h.text == "page 4"]
+
+        async def around(hit, before, after, principals=("user:a",)):
+            hits = await search.nearby(conn, source_id=hit.source_id, ordinal=hit.ordinal, principals=list(principals),
+                                       before=before, after=after)
+            return [h.text for h in hits]
+
+        assert await around(anchor, 1, 2) == ["page 3", "page 4", "page 5", "page 6"]
+        assert await around(anchor, 99, 0) == ["page 1", "page 2", "page 3", "page 4"]  # capped at MAX_NEARBY
+        assert await around(anchor, 0, 99) == ["page 4", "page 5", "page 6", "page 7"]
+        assert await around(anchor, 1, 1, principals=("user:b",)) == []  # same filter as search: not user:b's file
+        with pytest.raises(ValueError):
+            await around(anchor, 1, 1, principals=())
+
+
+async def test_retriever_nearby_needs_the_live_check_too(pool):
+    async with pool.connection() as conn:
+        await add(conn, "manual", "page 0", "page 1", "page 2")
+    retriever = PostgresRetriever(pool, mode="keyword")
+    [anchor] = await retriever.search("page 1", principals=["user:a"], verify=allow("manual"), k=1)
+    calls = []
+    hits = await retriever.nearby(anchor, principals=["user:a"], verify=allow("manual", calls=calls), before=1, after=1)
+    assert [h.text for h in hits] == ["page 0", "page 1", "page 2"] and calls == [[("d1", "manual")]]
+    assert await retriever.nearby(anchor, principals=["user:a"], verify=allow(), before=1, after=1) == []  # revoked
+
+
 async def test_term_rarity_counts_only_files_the_caller_can_see(pool):
     """Hidden files that mention a term must not change how a caller's results rank."""
     async with pool.connection() as conn:
@@ -143,3 +205,35 @@ async def test_a_failing_live_check_returns_nothing(pool):
 
     with pytest.raises(RuntimeError):
         await PostgresRetriever(pool).search("budget plan", principals=["user:a"], verify=outage)
+
+
+async def test_search_with_files_returns_the_readable_files_ranked_below_the_top_k(pool):
+    """The fact ranked 7th of 5: its file must still reach the sandbox. Files the caller can't open stay out."""
+    async with pool.connection() as conn:
+        await add(conn, "top", *[f"oil capacity table {n}" for n in range(5)])
+        await add(conn, "seventh", "oil capacity is 7 quarts with filter")
+        await add(conn, "revoked", "oil capacity of the secret engine")
+        await add(conn, "hidden", "oil capacity in a file the user is not in the ACL of", acl=("user:b",))
+    calls = []
+    hits, files = await PostgresRetriever(pool, mode="keyword").search_with_files(
+        "oil capacity", principals=["user:a"], verify=allow("top", "seventh", calls=calls), k=5)
+    assert {h.item_id for h in hits} == {"top"}
+    assert {f.item_id for f in files} == {"top", "seventh"}
+    assert len(calls) == 1  # the pool's files are checked in the same live check as the hits'
+    assert await PostgresRetriever(pool, mode="keyword").search(
+        "oil capacity", principals=["user:a"], verify=allow("top", "seventh"), k=5) == hits
+
+
+async def test_read_files_returns_whole_files_behind_both_layers(pool):
+    async with pool.connection() as conn:
+        await add(conn, "f1", "page one", "page two", "page three")
+        await add(conn, "revoked", "secret page")
+        await add(conn, "hidden", "other user's page", acl=("user:b",))
+    retriever = PostgresRetriever(pool, mode="keyword")
+    files = {}
+    for item in ("f1", "revoked", "hidden"):
+        _, found = await retriever.search_with_files("page", principals=["user:a", "user:b"], verify=allow(item), k=5)
+        files.update({f.item_id: f for f in found})
+    out = await retriever.read_files(list(files.values()), principals=["user:a"], verify=allow("f1", "hidden"))
+    assert [[h.text for h in hs] for hs in out.values()] == [["page one", "page two", "page three"]]
+    assert await retriever.read_files(list(files.values()), principals=["user:a"], verify=allow()) == {}

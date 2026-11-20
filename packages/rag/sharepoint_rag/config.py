@@ -4,9 +4,11 @@ from dotenv import load_dotenv
 
 load_dotenv()  # the shared .env; each service loads its own file (.env.mcp, .env.worker) first
 
-# Optional at startup so the plain SharePoint tools run without them.
+# Optional at startup so the plain SharePoint tools run without them. OpenAI's key, for an openai: generation, is
+# OPENAI_API_KEY, which langchain-openai reads itself.
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-# The Gemini model of the first index generation (`gemini:<model>` or a bare name).
+# The model of the first index generation: `gemini:<model>` (or a bare name) or `openai:<model>`. Gemini by default:
+# OpenAI's text-embedding-3 models retrieve far worse on the evals (docs/architecture.md, inference-server).
 # Later generations are created with `python -m sharepoint_rag.generations create`.
 EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "gemini-embedding-001")
 EMBEDDING_DIMENSIONS = int(os.environ.get("EMBEDDING_DIMENSIONS", "1536"))

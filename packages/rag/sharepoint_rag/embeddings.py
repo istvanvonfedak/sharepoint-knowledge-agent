@@ -6,7 +6,11 @@ the limit, and a slice is kept free for search queries, so a user's search never
 
 When the quota runs out anyway (another user of the key, a daily cap), a document request fails fast with
 `RateLimited`: the sync-worker defers the job and resumes it from its cached batches, so nothing waits long inside
-a request. A query retries briefly (QUERY_MAX_WAIT): a user is waiting for it."""
+a request. A query retries briefly (QUERY_MAX_WAIT): a user is waiting for it.
+
+Each batch is traced in LangSmith (when tracing is on) as an `embed` run with its token count, which Gemini's embed
+response doesn't give: a countTokens call alongside it does (free, and not part of the embedding quota). Document text
+is never sent to LangSmith (`trace_inputs`)."""
 import asyncio
 import math
 import os
@@ -14,6 +18,7 @@ import re
 import time
 
 import httpx
+import langsmith as ls
 
 from . import config
 
@@ -196,12 +201,58 @@ async def embed(texts: list[str], task_type: str, model_name: str, dimensions: i
             }
             query = task_type == "RETRIEVAL_QUERY"
             await LIMITER.acquire(len(body["requests"]), query=query)
-            data = await _post(client, f"{BASE}/{model}:batchEmbedContents", body, query=query)
-            batch = data["embeddings"]
-            if len(batch) != len(body["requests"]):
-                raise RuntimeError(f"Gemini returned {len(batch)} embeddings for {len(body['requests'])} inputs")
-            vectors += [_normalize(e["values"]) for e in batch]
+            batch = await _request(client, texts[i : i + BATCH_SIZE], body, model=model_name, dimensions=dimensions,
+                                   query=query, langsmith_extra={"metadata": trace_metadata("google_genai", model_name)})
+            vectors += [_normalize(e["values"]) for e in batch["embeddings"]]
     return vectors
+
+
+def trace_inputs(inputs: dict) -> dict:
+    """What an embedding run shows in LangSmith: how many texts, never a document's text; a query's, as the agent's
+    trace has it anyway."""
+    texts = inputs["texts"]
+    shown = {"model": inputs["model"], "dimensions": inputs["dimensions"], "texts": len(texts)}
+    if inputs["query"]:
+        shown["query"] = texts[0] if len(texts) == 1 else texts
+    return shown
+
+
+def trace_metadata(provider: str, model: str) -> dict:
+    """LangSmith prices a run from these and its outputs' usage_metadata."""
+    return {"ls_provider": provider, "ls_model_name": model, "ls_model_type": "embedding"}
+
+
+def usage(tokens: int, estimated: bool = False) -> dict:
+    out = {"usage_metadata": {"input_tokens": tokens, "output_tokens": 0, "total_tokens": tokens}}
+    return out | ({"tokens_estimated": True} if estimated else {})
+
+
+async def _count_tokens(client: httpx.AsyncClient, model: str, texts: list[str]) -> tuple[int, bool]:
+    """The batch's input tokens, for its trace; an estimate (4 characters a token) if Gemini can't say."""
+    try:
+        res = await client.post(f"{BASE}/models/{model}:countTokens", headers={"x-goog-api-key": config.require_gemini_key()},
+                                json={"contents": [{"parts": [{"text": t} for t in texts]}]})
+        res.raise_for_status()
+        return int(res.json()["totalTokens"]), False
+    except (httpx.HTTPError, KeyError, ValueError):
+        return sum(len(t) for t in texts) // 4 + 1, True
+
+
+@ls.traceable(run_type="llm", name="embed", process_inputs=trace_inputs,
+              process_outputs=lambda o: {k: v for k, v in o.items() if k != "embeddings"})
+async def _request(client: httpx.AsyncClient, texts: list[str], body: dict, *, model: str, dimensions: int,
+                   query: bool) -> dict:
+    url = f"{BASE}/models/{model}:batchEmbedContents"
+    # Counting only for a trace: untraced, it would be a request for nothing.
+    if ls.get_current_run_tree() is None:
+        data = await _post(client, url, body, query=query)
+        tokens = None
+    else:
+        data, tokens = await asyncio.gather(_post(client, url, body, query=query), _count_tokens(client, model, texts))
+    batch = data["embeddings"]
+    if len(batch) != len(texts):
+        raise RuntimeError(f"Gemini returned {len(batch)} embeddings for {len(texts)} inputs")
+    return {"embeddings": batch, **(usage(*tokens) if tokens else {})}
 
 
 def _normalize(vector: list[float]) -> list[float]:

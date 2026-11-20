@@ -1,8 +1,11 @@
 """Runs `sharepoint_ask` as production does (`agent.ask`, the configured ASK_MODEL and budgets), with its tools bound
 to a suite's eval index instead of a tenant.
 
-- search: `PostgresRetriever` over the suite's eval database, with the persona's principals and a live check
-  that answers from the dataset's permission lists (what server.search_index does, minus the Graph lookups).
+- search and read_around: `PostgresRetriever` over the suite's eval database, with the persona's principals and a
+  live check that answers from the dataset's permission lists (what server.search_index and server.nearby_index
+  do, minus the Graph lookups).
+- with ASK_SANDBOX=local, search also gives the agent's sandbox the files of its top candidates, and read_files
+  their whole text, from the same index and permissions (recorded as a "sandbox" call).
 - read_file and list_items: production's own `graph.read_file_text` and `graph.list_children`, with Graph's HTTP
   layer (`graph._get`) answered from the suite's files. So the same rules apply as live: text-based files and
   .docx only, cut to MAX_FILE_CHARS, and any other type, PDFs included, fails as it does live. The library is
@@ -11,6 +14,7 @@ to a suite's eval index instead of a tenant.
 Every tool call is recorded (`Run.calls`), with the text each source returned, so scorers can check what the
 agent looked at, and a grader can see the cited sources' text.
 """
+import asyncio
 import json
 import mimetypes
 import time
@@ -97,8 +101,9 @@ class Run:
     seconds: float = 0.0
     error: str | None = None
 
-    def seen(self, tools=("search", "read_file")) -> set[str]:
-        """Item ids a search returned or the agent tried to read (a folder listing only shows names)."""
+    def seen(self, tools=("search", "read_around", "read_file", "sandbox")) -> set[str]:
+        """Item ids a search returned or the agent tried to read (a folder listing only shows names), including the
+        files written to its sandbox, which it can read whole."""
         return {i for c in self.calls if c["tool"] in tools for i in c.get("items", [])}
 
     @property
@@ -156,10 +161,49 @@ def tools(corpus: Corpus, persona: str, run: Run):
         run.calls.append({"tool": "list_items", "items": [c["id"] for c in children if "id" in c]})
         return children
 
-    return agent.AskTools(search=search, read_file=read_file, list_items=list_items)
+    async def nearby(hit, before: int, after: int):
+        retriever = PostgresRetriever(await pool(corpus), mode="hybrid")
+        hits = await retriever.nearby(hit, principals=principals, verify=allow(readable), before=before, after=after)
+        run.calls.append({"tool": "read_around", "items": [h.item_id for h in hits]})
+        for h in hits:
+            note(h.web_url, h.text)
+        return hits
+
+    async def search_files(query: str, k: int):
+        retriever = PostgresRetriever(await pool(corpus), mode="hybrid")
+        hits, files = await retriever.search_with_files(query, principals=principals, verify=allow(readable), k=k)
+        run.calls.append({"tool": "search", "query": query, "items": [h.item_id for h in hits]})
+        for h in hits:
+            note(h.web_url, h.text)
+        return hits, files
+
+    async def read_files(files: list):
+        """The whole files written to the sandbox: the agent can read any of them with run."""
+        retriever = PostgresRetriever(await pool(corpus), mode="hybrid")
+        chunks = await retriever.read_files(files, principals=principals, verify=allow(readable))
+        run.calls.append({"tool": "sandbox", "items": [hs[0].item_id for hs in chunks.values()]})
+        for hs in chunks.values():
+            note(hs[0].web_url, "\n".join(h.text for h in hs))
+        return chunks
+
+    return agent.AskTools(search=search, read_file=read_file, list_items=list_items, nearby=nearby,
+                          search_files=search_files, read_files=read_files)
 
 
 _model = None
+_sandboxes: dict = {}  # per event loop: its HTTP client belongs to the loop that made it, and evals run several
+
+
+def sandbox():
+    """The sandbox service when ASK_SANDBOX=local (SANDBOX_URL must reach it from where the evals run), else None."""
+    from mcp_server import interpreter, settings
+
+    if settings.ASK_SANDBOX != "local":
+        return None
+    loop = asyncio.get_running_loop()
+    if loop not in _sandboxes:
+        _sandboxes[loop] = interpreter.LocalSandbox(settings.SANDBOX_URL, settings.SANDBOX_API_KEY)
+    return _sandboxes[loop]
 
 
 def ask_model():
@@ -168,7 +212,7 @@ def ask_model():
     from mcp_server import settings
 
     if not settings.ASK_MODEL:
-        raise RuntimeError("The agent tier needs ASK_MODEL (or GEMINI_API_KEY for the default model); see .env.mcp.example")
+        raise RuntimeError("The agent tier needs ASK_MODEL (or OPENAI_API_KEY for the default model); see .env.mcp.example")
     if _model is None:
         from langchain.chat_models import init_chat_model
         _model = init_chat_model(settings.ASK_MODEL, **settings.ASK_MODEL_KWARGS)
@@ -183,7 +227,7 @@ async def ask(corpus: Corpus, persona: str, question: str, model=None) -> Run:
     try:
         run.result = await agent.ask(model or ask_model(), question, tools(corpus, persona, run),
                                      max_steps=settings.ASK_MAX_STEPS, max_tokens=settings.ASK_MAX_TOKENS,
-                                     timeout_seconds=settings.ASK_TIMEOUT_SECONDS)
+                                     timeout_seconds=settings.ASK_TIMEOUT_SECONDS, sandbox=sandbox())
     except Exception as e:  # the server would surface this as a tool error; score it as a failed run
         run.error = f"{type(e).__name__}: {e}"[:500]
     run.seconds = round(time.monotonic() - started, 2)

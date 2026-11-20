@@ -9,7 +9,8 @@ Run the full stack (mcp-server, sync-worker, inference-server, Postgres) with Do
 - App registrations (create the Entra apps): https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade
 - Entra admin center: https://entra.microsoft.com
 - Microsoft 365 admin center: https://admin.microsoft.com
-- Gemini API key: https://aistudio.google.com/apikey
+- Gemini API key (embeddings): https://aistudio.google.com/apikey
+- OpenAI API key (`sharepoint_ask`): https://platform.openai.com/api-keys
 
 ## 1. Configure Entra ID: two app registrations
 
@@ -100,7 +101,7 @@ cp .env.mcp.example .env.mcp
 cp .env.worker.example .env.worker
 ```
 
-- `.env` (shared by every service): `POSTGRES_PASSWORD`, an `INFERENCE_API_KEY` (any long random string) and `GEMINI_API_KEY`, used for embeddings and for `sharepoint_ask` (Gemini, `google_genai:gemini-3.8-flash`).
+- `.env` (shared by every service): `POSTGRES_PASSWORD`, an `INFERENCE_API_KEY` (any long random string) `GEMINI_API_KEY` for embeddings and `OPENAI_API_KEY` for `sharepoint_ask` (`openai:gpt-6-luna`). Optionally the `LANGSMITH_*` settings, to trace embedding requests with their cost.
 - `.env.mcp`: `AZURE_*` of the mcp-server app and a `TOKEN_ENCRYPTION_KEY` (the command is in the file). `ASK_MODEL=none` turns the agent off. `ASK_MODEL` can also name another LangChain chat model plus its provider's key, once its `langchain-<provider>` package is installed in the mcp-server image.
 - `.env.worker`: `AZURE_TENANT_ID` and `SYNC_AZURE_CLIENT_ID` of the sync-worker app (its certificate is `secrets/sync-worker.pem`, mounted by Docker Compose; set `SYNC_AZURE_CERT_PATH` when running without Docker), and `SYNC_SITES` (site ids or `contoso.sharepoint.com:/sites/HR`, comma separated).
 
@@ -145,7 +146,7 @@ claude mcp add --transport http sharepoint http://localhost:8080/api/mcp
 
 Then authenticate from the client (in Claude Code, run `/mcp` and choose *Authenticate*). Sign-ins are stored in Postgres, so they survive restarts.
 
-Tools: `sharepoint_search` (the index, permission-checked), `sharepoint_ask` (an answer with sources; on when `GEMINI_API_KEY` is set), and live Graph tools `sharepoint_read_file`, `sharepoint_find_sites`, `sharepoint_list_drives`, `sharepoint_list_items`, `sharepoint_whoami`, `sharepoint_logout`. Until the first crawl finishes, search returns nothing; `SEARCH_BACKEND=graph` switches it to Microsoft Search instead.
+Tools: `sharepoint_search` (the index, permission-checked), `sharepoint_ask` (an answer with sources; on when `OPENAI_API_KEY` is set), and live Graph tools `sharepoint_read_file`, `sharepoint_find_sites`, `sharepoint_list_drives`, `sharepoint_list_items`, `sharepoint_whoami`, `sharepoint_logout`. Until the first crawl finishes, search returns nothing; `SEARCH_BACKEND=graph` switches it to Microsoft Search instead.
 
 ## Team use (not set up)
 

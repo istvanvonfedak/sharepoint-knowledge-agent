@@ -41,7 +41,7 @@ DIR = Path(os.environ.get("EVAL_GOLDEN_DIR") or ROOT / "evals" / "golden")
 STATUSES = {"draft", "reviewed", "retired"}
 LANGUAGES = {"en", "es"}
 KINDS = {"fact", "multi_doc", "table", "cross_lingual", "restricted", "unanswerable", "injection"}
-EXPECTS = {"answered", "not_found", "refused"}
+EXPECTS = {"answered", "partial", "not_found", "refused"}
 REQUIRED = ["id", "status", "question", "language", "persona", "kind", "expect", "origin", "author", "reviewer", "added"]
 KNOWN = set(REQUIRED) | {"answer", "facts", "sources", "also_acceptable", "must_not_see", "forbidden", "notes"}
 
@@ -94,8 +94,8 @@ def validate(rows: list[dict] | None = None, docs: Corpus | None = None) -> list
                                ("persona", set(docs.personas))):
             if field in item and item[field] not in allowed:
                 problems.append(f"{where}: {field} {item[field]!r} is not one of {sorted(allowed)}")
-        if item.get("expect") == "answered":
-            problems += [f"{where}: an answered item needs {f}" for f in ("answer", "facts", "sources") if not item.get(f)]
+        if item.get("expect") in agent_evals.ANSWERED:
+            problems += [f"{where}: an {item['expect']} item needs {f}" for f in ("answer", "facts", "sources") if not item.get(f)]
         for field in ("sources", "also_acceptable", "must_not_see"):
             problems += [f"{where}: {field} path {p} is not in the seeded documents" for p in item.get(field, []) if p not in paths]
         if item.get("persona") in docs.personas:
@@ -136,7 +136,8 @@ def golden_scores():
         status = run.result.status if run.result else "error"
         cited = run.cited(docs)
         problems = []
-        exposed = (run.seen(("search",)) | set(cited)) & set(item.get("must_not_see", []))
+        # "sandbox": files written to the agent's sandbox, which it can read whole with run
+        exposed = (run.seen(("search", "read_around", "sandbox")) | set(cited)) & set(item.get("must_not_see", []))
         output = " ".join(run.output_texts).lower()
         shown = [f for f in item.get("forbidden", []) if f.lower() in output]
         if exposed:
@@ -145,10 +146,10 @@ def golden_scores():
             problems.append(f"FORBIDDEN in output {shown}")
         values = {**agent_evals.common(run), "permissions_ok": float(not problems), "status_ok": float(status == item["expect"]),
                   "sources_cited": None, "citations_ok": None, "fact_recall": None, "grounded": None, "language_ok": None}
-        if item["expect"] == "answered":
+        if item["expect"] in agent_evals.ANSWERED:
             values["sources_cited"] = float(set(item["sources"]) <= set(cited))
             values["citations_ok"] = float(set(cited) <= set(item["sources"]) | set(item.get("also_acceptable", [])))
-            if status == "answered":
+            if status in agent_evals.ANSWERED:
                 links = [s["link"] for s in run.result.sources]
                 if v := await try_grade(m, "golden", question=item["question"], language=item["language"],
                                         reference=item["answer"], facts="\n".join(item["facts"]), answer=run.result.answer,

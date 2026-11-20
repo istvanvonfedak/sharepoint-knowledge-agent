@@ -6,6 +6,7 @@ SharePoint Q&A agent with a built-in MCP server. Entra ID delegated auth means u
 - [Setup](docs/setup.md): configure Entra ID, run the MCP server (Docker or local) and connect a client.
 - [Microsoft tenant setup](docs/microsoft-tenant-setup.md): step-by-step walkthrough from a new Azure/Microsoft 365 tenant and Entra app registration to a validated working server.
 - [MCP OAuth sign-in](docs/oauth.md): how the sign-in flow works, and its limits.
+- [Cost case study](docs/cost-case-study.md): how `sharepoint_ask` went from $0.046 to $0.003 a question (caching, the code interpreter, model and effort choices, embeddings), with the measurements.
 - [Evals](docs/evals.md): what we measure (permissions, freshness, retrieval, extraction, answers, agent safety, performance), the datasets, and the local and live test tiers.
 
 ## Infrastructure
@@ -26,13 +27,14 @@ flowchart LR
     end
 
     GEMINI["Google Gemini API"]
+    OPENAI["OpenAI API"]
 
     CLIENT -->|"MCP over HTTP + OAuth"| MCP
     MCP -->|"delegated sign-in"| ENTRA
     MCP -->|"user's token: live reads,<br/>access re-checks"| GRAPH
     MCP --> PG
     MCP -->|"/embed"| INF
-    MCP -->|"sharepoint_ask agent"| GEMINI
+    MCP -->|"sharepoint_ask agent"| OPENAI
 
     SW -->|"app-only token (certificate)"| GRAPH
     SW --> PG
@@ -51,4 +53,4 @@ Tests: `.venv/bin/python -m pytest`. Database tests need a Postgres with pgvecto
 - Clients register dynamically, but only to loopback or operator-allowed redirect URIs.
 - Tokens issued by this server are opaque, stored hashed, bound to the user's Entra account, and expire after 1 hour (refresh tokens: 30 days, rotated). Entra tokens are stored encrypted with `TOKEN_ENCRYPTION_KEY`; keep that key out of the database.
 - The sync-worker has its own Entra app with app-only read access; signed with a certificate the mcp-server never holds.
-- The index holds everything the crawler can read: keep Postgres on a private network and its disk encrypted. Embeddings and `sharepoint_ask` both send text to Google's Gemini API by default (chunk text for embeddings, text the user may read for the agent). `ASK_MODEL=none` turns the agent off, or points it at another provider.
+- The index holds everything the crawler can read: keep Postgres on a private network and its disk encrypted. By default embeddings send chunk text to Google's Gemini API, and `sharepoint_ask` sends text the user may read to OpenAI. `ASK_MODEL=none` turns the agent off, or points it at another provider.

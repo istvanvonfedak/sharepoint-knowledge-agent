@@ -1,5 +1,6 @@
 """Client for embedding: the inference-server when INFERENCE_URL is set, otherwise in-process."""
 import httpx
+import langsmith as ls
 
 from . import config, models
 from .embeddings import RateLimited, retry_delay
@@ -8,6 +9,8 @@ from .models import Task
 
 async def _call(path: str, body: dict) -> dict:
     headers = {"Authorization": f"Bearer {config.INFERENCE_API_KEY}"} if config.INFERENCE_API_KEY else {}
+    if run := ls.get_current_run_tree():  # the inference-server traces the embedding inside the caller's trace
+        headers.update(run.to_headers())
     async with httpx.AsyncClient(timeout=300) as client:
         res = await client.post(f"{config.INFERENCE_URL}{path}", json=body, headers=headers)
     if res.status_code == 429:

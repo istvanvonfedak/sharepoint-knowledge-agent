@@ -1,0 +1,6 @@
+#!/bin/sh
+# section FILE LINE...: the section (the last "=== ... ===" marker line above it) each LINE of FILE is in.
+f=$1; shift
+awk -v lines="$*" 'BEGIN { n = split(lines, l, " "); for (i = 1; i <= n; i++) want[l[i]] = 1 }
+/^=== .* ===$/ { s = $0 }
+(FNR in want) { print FNR ": " s }' "$f"

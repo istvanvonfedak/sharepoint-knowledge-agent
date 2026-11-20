@@ -1,0 +1,13 @@
+[project]
+name = "sandbox-server"
+version = "0.1.0"
+description = "Runs sharepoint_ask's shell commands over a request's files, isolated by nsjail"
+requires-python = ">=3.11"
+dependencies = ["starlette>=0.40", "uvicorn>=0.54", "pydantic>=2"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["sandbox_server"]

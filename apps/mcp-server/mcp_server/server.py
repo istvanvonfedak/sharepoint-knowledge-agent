@@ -121,9 +121,24 @@ def _verifier(token: str):
     return verify
 
 
-async def search_index(user_id: str, token: str, query: str, limit: int) -> list:
+async def search_index(user_id: str, token: str, query: str, limit: int, *, with_files: bool = False):
+    """The hits, or with `with_files`, (hits, the files of the top candidates the user can open)."""
     principals = await principals_for(user_id, token)
+    if with_files:
+        return await retriever.search_with_files(query, principals=principals, verify=_verifier(token), k=limit)
     return await retriever.search(query, principals=principals, verify=_verifier(token), k=limit)
+
+
+async def nearby_index(user_id: str, token: str, hit, before: int, after: int) -> list:
+    """The chunks around a search hit, behind the same two permission layers as search_index."""
+    principals = await principals_for(user_id, token)
+    return await retriever.nearby(hit, principals=principals, verify=_verifier(token), before=before, after=after)
+
+
+async def read_index_files(user_id: str, token: str, files: list) -> dict[int, list]:
+    """Whole files from the index for the agent's sandbox, behind the same two permission layers as search_index."""
+    principals = await principals_for(user_id, token)
+    return await retriever.read_files(files, principals=principals, verify=_verifier(token))
 
 
 def _hit_json(h) -> dict:
@@ -201,36 +216,46 @@ async def sharepoint_read_file(drive_id: str, item_id: str, max_bytes: int = 100
 if settings.ASK_MODEL:
     from langchain.chat_models import init_chat_model
 
-    from . import agent
+    from . import agent, interpreter
 
     _ask_model = init_chat_model(settings.ASK_MODEL, **settings.ASK_MODEL_KWARGS)
+    _sandbox = interpreter.LocalSandbox(settings.SANDBOX_URL, settings.SANDBOX_API_KEY) if settings.ASK_SANDBOX == "local" else None
+
+    async def run_ask(user_id: str, token: str, question: str, *, metadata: dict,
+                      progress: agent.Progress | None = None) -> agent.AskResult:
+        """One sharepoint_ask run as `user_id`, without the tool's rate limits and accounting (scripts/ask_bench.py)."""
+        tools = agent.AskTools(
+            search=lambda q, k: search_index(user_id, token, q, k),
+            read_file=lambda d, i: graph.read_file_text(token, d, i, agent.MAX_FILE_CHARS),
+            list_items=lambda d, i: graph.list_children(token, d, i),
+            nearby=lambda hit, before, after: nearby_index(user_id, token, hit, before, after),
+            search_files=lambda q, k: search_index(user_id, token, q, k, with_files=True),
+            read_files=lambda files: read_index_files(user_id, token, files),
+        )
+        return await agent.ask(
+            _ask_model, question, tools, max_steps=settings.ASK_MAX_STEPS, max_tokens=settings.ASK_MAX_TOKENS,
+            timeout_seconds=settings.ASK_TIMEOUT_SECONDS, progress=progress, sandbox=_sandbox,
+            # A pseudonym, not the Entra id: traces of one user's runs group together without naming them.
+            metadata={"user": hashlib.sha256(user_id.encode()).hexdigest()[:16], "model": settings.ASK_MODEL, **metadata},
+        )
 
     @mcp.tool()
     async def sharepoint_ask(question: str, ctx: Context) -> str:
         """Research a question across the SharePoint content the user can access and answer it with sources
         (title, link, quote). Slower than sharepoint_search; use it when you want an answer, not raw results.
-        Answers say so when the content doesn't cover the question."""
+        status is "answered", "partial" (the answer says what is missing) or "not_found" when the content doesn't
+        cover the question."""
         user_id = _user_id()
         await usage.hit(user_id, "ask", settings.ASK_PER_HOUR, 3600)
         if await usage.tokens_used(user_id, "ask_tokens", 86400) >= settings.ASK_TOKENS_PER_DAY:
             raise RateLimited("Daily sharepoint_ask budget used up. Try again tomorrow or use sharepoint_search.")
         token = await _graph_token(user_id)
-        tools = agent.AskTools(
-            search=lambda q, k: search_index(user_id, token, q, k),
-            read_file=lambda d, i: graph.read_file_text(token, d, i, agent.MAX_FILE_CHARS),
-            list_items=lambda d, i: graph.list_children(token, d, i),
-        )
 
         async def progress(step: float, total: float | None, message: str) -> None:
             await ctx.report_progress(step, total, message)
 
         try:
-            result = await agent.ask(
-                _ask_model, question, tools, max_steps=settings.ASK_MAX_STEPS,
-                max_tokens=settings.ASK_MAX_TOKENS, timeout_seconds=settings.ASK_TIMEOUT_SECONDS, progress=progress,
-                # A pseudonym, not the Entra id: traces of one user's runs group together without naming them.
-                metadata={"user": hashlib.sha256(user_id.encode()).hexdigest()[:16], "model": settings.ASK_MODEL},
-            )
+            result = await run_ask(user_id, token, question, metadata={}, progress=progress)
         except Exception as e:  # e.g. the user's Graph token was revoked mid-run
             await usage.audit(user_id, "ask", query=question, detail={"status": "error", "error": type(e).__name__})
             raise
@@ -278,7 +303,8 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO)
     print(f"MCP server:     {MCP_URL}")
     print(f"OAuth callback: {config.REDIRECT_URI}")
-    print(f"sharepoint_ask: {'on (' + settings.ASK_MODEL + ')' if settings.ASK_MODEL else 'off (set GEMINI_API_KEY, or ASK_MODEL and its key)'}")
+    print(f"sharepoint_ask: {'on (' + settings.ASK_MODEL + ')' if settings.ASK_MODEL else 'off (set OPENAI_API_KEY, or ASK_MODEL and its key)'}"
+          f"{', sandbox ' + settings.SANDBOX_URL if settings.ASK_MODEL and settings.ASK_SANDBOX == 'local' else ''}")
     asyncio.run(_serve())
 
 

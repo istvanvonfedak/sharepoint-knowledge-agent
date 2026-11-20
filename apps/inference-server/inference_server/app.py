@@ -3,14 +3,16 @@
     POST /embed   {"model", "texts", "task": "document"|"query", "dimensions"} -> {"vectors"}
     GET  /health  -> {"ok"}
 
-The backend is sharepoint_rag.models: hosted Gemini (chunk text leaves our infrastructure). Callers
-authenticate with INFERENCE_API_KEY.
+The backend is sharepoint_rag.models: hosted OpenAI or Gemini (chunk text leaves our infrastructure). Callers
+authenticate with INFERENCE_API_KEY. With LangSmith tracing on, a caller's trace headers put the embedding run inside
+that caller's trace (a search inside its sharepoint_ask run).
 """
 import hmac
 import logging
 import math
 import os
 
+import langsmith as ls
 from pydantic import BaseModel, Field
 from sharepoint_rag import models
 from sharepoint_rag.embeddings import RateLimited
@@ -60,7 +62,9 @@ async def embed(request: Request) -> JSONResponse:
     if error:
         return error
     try:
-        vectors = await models.embed(body.model, body.texts, body.task, body.dimensions)
+        # Only an authenticated caller gets here, so only it can choose the trace this run joins.
+        with ls.tracing_context(parent=request.headers if "langsmith-trace" in request.headers else None):
+            vectors = await models.embed(body.model, body.texts, body.task, body.dimensions)
     except ValueError as e:
         return JSONResponse({"error": str(e)}, 400)
     except RateLimited as e:  # the quota, not the request: tell the caller when to come back

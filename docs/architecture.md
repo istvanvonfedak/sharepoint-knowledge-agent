@@ -16,7 +16,8 @@ A search and Q&A service over SharePoint, exposed as an MCP server. Users only g
 |---|---|
 | mcp-server: Entra sign-in with all state in Postgres, `sharepoint_search` on the index (both permission layers), `sharepoint_ask`, rate limits, audit log, configurable public URL | Built (`apps/mcp-server/`) |
 | sync-worker: job queue, `discover_sites`, `crawl_drive`, `index_item`, deletes, `sync_item_acl` + daily sweep, `backfill_generation`, shared Graph throttle, own app registration | Built (`apps/sync-worker/`) |
-| inference-server: `/embed` over hosted Gemini | Built (`apps/inference-server/`) |
+| inference-server: `/embed` over hosted Gemini (or OpenAI) | Built (`apps/inference-server/`) |
+| sandbox: `sharepoint_ask`'s code interpreter, nsjail per command ([Code interpreter](code-interpreter.md)) | Built (`apps/sandbox/`), off by default (`ASK_SANDBOX`); gVisor runtime untested (no Linux host yet) |
 | Index: extraction, chunking, per-language keyword search, hybrid search, generations, permission writes | Built (`packages/rag/`) |
 | Live access check (`verify_access`), group lookup | Built (`packages/sharepoint/`) |
 | Evals: extraction, permissions (incl. unresolved files, guests), live check, retrieval quality | Built (`evals/`); generation swaps and out-of-order permission writes are covered by DB tests |
@@ -39,7 +40,7 @@ flowchart LR
         JOBS[Jobs: crawl, index,<br/>sync permissions]
     end
 
-    LLM[Gemini, via LangChain]
+    LLM[OpenAI, via LangChain]
     INF["inference-server<br/>embed"]
     PG[("Postgres + pgvector<br/>chunks, permissions,<br/>job queue, sessions")]
     ENTRA[Entra ID]
@@ -63,6 +64,7 @@ flowchart LR
 | **mcp-server** | Serves MCP tools, signs users in, runs searches and the agent. No state of its own (it's all in Postgres) except MCP sessions (see [Deployment](#deployment)). | More replicas |
 | **sync-worker** | Copies SharePoint into the index and keeps permissions current. | More replicas, up to Graph's rate limits |
 | **inference-server** | Turns text into vectors (Gemini). | More replicas |
+| **sandbox** (optional) | Runs `sharepoint_ask`'s shell commands over one call's files, with no network and no secrets ([Code interpreter](code-interpreter.md)). | More memory (sessions are tmpfs) |
 | **Postgres** | Everything else: search index, permissions, sync state, job queue, sessions, audit log. | Bigger machine |
 
 The mcp-server and sync-worker share the `sharepoint_rag` and `sharepoint_client` packages but run as separate containers.
@@ -80,14 +82,15 @@ A Python MCP server (the `mcp` SDK served by uvicorn) at `/api/mcp`. It also act
 
 ### The agent: `sharepoint_ask`
 
-For callers that want an answer, not raw results. The server runs its own loop, a LangGraph graph (a `model` node and a `tools` node): search, read a file, refine, search again, then answer with sources. The model is Gemini by default (`google_genai:gemini-3.8-flash`, with the same `GEMINI_API_KEY` as embeddings). It is created with LangChain's `init_chat_model`, so `ASK_MODEL` can name any other LangChain chat model (e.g. `anthropic:claude-opus-5-5`) once its package is installed.
+For callers that want an answer, not raw results. The server runs its own loop, a LangGraph graph (a `model` node and a `tools` node): search, read around what it found, refine, search again, then answer with sources. The model is OpenAI's GPT-6 Luna by default (`openai:gpt-6-luna` at medium effort, with `OPENAI_API_KEY`; [measured](code-interpreter.md#cheaper-models) against Gemini 3.8 Flash, 3.5 Flash-Lite and GPT-6.1 Terra). It is created with LangChain's `init_chat_model`, so `ASK_MODEL` can name any other LangChain chat model (e.g. `anthropic:claude-opus-5-5`) once its package is installed.
 
-- **Tools it can use** (internal, read-only): `search`, `read_file`, `list_items`.
-- **Permissions:** `search` goes through both [permission layers](#permissions). `read_file` and `list_items` call Graph with the user's token, so Graph itself refuses anything the user can't open. The agent can never get more than the user could by calling the tools directly.
-- **Output:** answer text plus sources (title, link, quote). A source must be one the loop actually retrieved. "Not found" is a valid answer.
+- **Tools it can use** (internal, read-only): `search`, `read_around`, `read_file`, `list_items`. With `ASK_SANDBOX=local` they are `search`, `run` and `final_answer` instead: the files its searches found are in the sandbox service, search returns where each hit is in them (lines, section, best matching line) rather than its text, and `run` is a bash command (`rg`, `sed`, ...) over them, so the agent reads only the lines it needs ([Code interpreter](code-interpreter.md)). Files reach the sandbox through the same two permission layers; quotes are checked against the server's own copy of each file, never command output. `read_around` returns the indexed passages just before and after a search hit in its file. It is how the agent reads on in a PDF, which `read_file` can't open, and it often supplies what a passage needs to be understood: a parts table's title and the models it applies to sit on the page before the table.
+- **Permissions:** `search` and `read_around` go through both [permission layers](#permissions). `read_file` and `list_items` call Graph with the user's token, so Graph itself refuses anything the user can't open. The agent can never get more than the user could by calling the tools directly.
+- **Output:** answer text plus sources (title, link, quote, and the `sections` the quotes are in, e.g. `… > Page 401`). A source must be one the loop actually retrieved, and each quote must be in its text: whole, or as pieces in order joined with "…" (cells of a table aren't next to each other in extracted text). If a quote doesn't check out, the model is told why and gets one chance to fix it before it's dropped. The status says how much of the question was answered: `answered`, `partial` (part of it; the answer says what is missing, such as a manual the documents refer to that isn't indexed) or `not_found`, which is a valid answer. A partial answer needs a citation that checks out, or it is `not_found`.
+- **Tracing:** with `LANGSMITH_TRACING=true` (see `.env.mcp.example`), each call is one `sharepoint_ask` trace: the question in; status, answer and sources out; below it each model call, and each tool call with its arguments and results (`search` and `read_around` as retriever runs). A search's query embedding is an `embed` run inside it, so the trace's cost includes it (the inference-server joins the caller's trace, see [inference-server](#inference-server)).
 - **Limits:** max steps, tokens and time per call, and a per-user rate limit. It sends progress updates while working and returns what it found if it runs out of budget. Counters and token usage live in Postgres, so replicas share them.
 - **Prompt injection:** documents are untrusted. A planted instruction could make the agent read other files the user can open and quote them in its answer. Mitigations: the answer is plain text, links are limited to cited sources, and the agent has no way to call out to any other URL. It still can't be made to read anything the user couldn't read.
-- **Data sent out:** text the user may read goes to the model's provider (Google, by default). The tool is on whenever `GEMINI_API_KEY` is set; `ASK_MODEL=none` turns it off.
+- **Data sent out:** text the user may read goes to the model's provider (OpenAI, by default). The tool is on whenever `OPENAI_API_KEY` is set; `ASK_MODEL=none` turns it off.
 
 ## sync-worker
 
@@ -117,11 +120,22 @@ Rules:
 
 ## inference-server
 
-A separate service for embeddings, so the Gemini API key stays out of the sync-worker. One call: `POST /embed` (texts → vectors).
+A separate service for embeddings, so the embedding API key stays out of the sync-worker. One call: `POST /embed` (texts → vectors).
 
-**Decision: Gemini only** (`gemini-embedding-001`). Setup is just an API key and cost is per token, but **chunk text leaves our infrastructure**. A self-hosted option (Hugging Face TEI with bge-m3 and a bge-reranker) was built and then removed to keep one backend. Bringing it back means adding a backend to `sharepoint_rag.models`. **No reranker for now:** results are ordered by hybrid RRF alone. The Gemini API has no rerank endpoint; Google's reranker is the Vertex AI Ranking API, which needs a Google Cloud project and service-account credentials. Revisit once the retrieval evals are hard enough to show whether reranking helps.
+**Decision: Gemini** (`gemini-embedding-001`), with OpenAI as a second backend (`openai:text-embedding-3-small` / `-large`, through LangChain's `OpenAIEmbeddings`). Setup is just an API key and cost is per token, but **chunk text leaves our infrastructure**. OpenAI is cheaper ($0.02 and $0.13 per million tokens against $0.15) but retrieves far worse on the capability evals (2026-11-19, 1536 dimensions, hybrid search):
 
-**Rate limits.** Gemini's embedding quota is per minute and counts every text, also inside a batch (Tier 1: 3,000 a minute). Each inference-server process paces itself under `GEMINI_EMBED_PER_MINUTE` (default 2,700) and keeps 10% of it for search queries, so a crawl never makes a user's search wait. When the quota runs out anyway, a short wait (≤ 10 s) is waited out; a longer one returns 429 with `Retry-After`, and the sync-worker defers the job for that long without spending an attempt or marking the file `error`. Each Gemini batch a job embedded is kept (`embedding_progress`), so the retry resumes instead of paying again, and a re-index keeps the vectors of unchanged chunks. **Not yet for several replicas:** each process knows only its own traffic and its own pauses. Before running more than one inference-server or sync-worker, split the quota between them and share the pause through Postgres (next to `graph_throttle`), so one replica's 429 stops the others claiming embedding jobs.
+| | gemini-embedding-001 | text-embedding-3-small | text-embedding-3-large |
+|---|---|---|---|
+| FinanceBench hit@1 / wrong_filing@1 | 0.859 / 0.128 | 0.487 / 0.487 | 0.538 / 0.449 |
+| Multilingual hit@1 | 0.718 | 0.578 | 0.600 |
+| Identifiers hit@1 (vector alone) | 0.999 (0.865) | 0.906 (0.253) | 0.938 (0.247) |
+| Synthetic, ACL scale hit@1 | 0.923, 0.990 | 0.923, 0.987 | 0.923, 0.987 |
+
+Embedding is a small part of the cost anyway: a search query is about $0.000003, and re-embedding all 46k chunks of the local index (about 10M tokens) about $1.50 on Gemini. A self-hosted option (Hugging Face TEI with bge-m3 and a bge-reranker) was built and then removed. Bringing it back means adding a backend to `sharepoint_rag.models`. **No reranker for now:** results are ordered by hybrid RRF alone. The Gemini API has no rerank endpoint; Google's reranker is the Vertex AI Ranking API, which needs a Google Cloud project and service-account credentials. Revisit once the retrieval evals are hard enough to show whether reranking helps.
+
+**Tracing.** With LangSmith tracing on (`LANGSMITH_*` in `.env`), each embedding request is an `embed` run with its model and token count, which LangSmith prices: Gemini's from a `countTokens` call alongside it, OpenAI's counted locally (the workspace has price entries for `text-embedding-3-*`). A caller's trace headers make the run part of that caller's trace, so a `sharepoint_ask` trace includes its searches' query embeddings; indexing batches are traces of their own. No document text is sent to LangSmith, only counts; a query's text is.
+
+**Rate limits.** Gemini's embedding quota is per minute and counts every text, also inside a batch (Tier 1: 3,000 a minute). Each inference-server process paces itself under `GEMINI_EMBED_PER_MINUTE` (default 2,700) and keeps 10% of it for search queries, so a crawl never makes a user's search wait. When the quota runs out anyway, a short wait (≤ 10 s) is waited out; a longer one returns 429 with `Retry-After`, and the sync-worker defers the job for that long without spending an attempt or marking the file `error`. Each Gemini batch a job embedded is kept (`embedding_progress`), so the retry resumes instead of paying again, and a re-index keeps the vectors of unchanged chunks. OpenAI's quota is in tokens, so its backend paces by tokens instead (`OPENAI_EMBED_TOKENS_PER_MINUTE`, default 900k) and turns a 429 into the same deferral. **Not yet for several replicas:** each process knows only its own traffic and its own pauses. Before running more than one inference-server or sync-worker, split the quota between them and share the pause through Postgres (next to `graph_throttle`), so one replica's 429 stops the others claiming embedding jobs.
 
 ## Search index
 
@@ -270,7 +284,7 @@ flowchart TB
 - Permission checks fail closed: layer 2 errors, failed group lookups and unresolved permissions all return nothing.
 - Client tokens are opaque, hashed, short-lived and rotated. The server holds Entra refresh tokens in an encrypted cache with a key kept outside the database. A database leak plus that key would expose every signed-in user's access, so guard the key.
 - No original files are stored. The audit log keeps a keyed HMAC of each query (a plain hash of a short query can be guessed) plus result IDs, not content. Still treat it as sensitive.
-- Text may leave our infrastructure only through the Gemini embedding API and the `sharepoint_ask` model provider (Gemini by default). Both are on once `GEMINI_API_KEY` is set; `ASK_MODEL=none` turns the agent off.
+- Text may leave our infrastructure only through the embedding API (Gemini by default) and the `sharepoint_ask` model provider (OpenAI by default), once `GEMINI_API_KEY` and `OPENAI_API_KEY` are set; `ASK_MODEL=none` turns the agent off. With LangSmith tracing on, the agent's trace holds what it read; embedding traces hold counts only, and a search query's text.
 
 ## Quality checks
 
@@ -283,7 +297,7 @@ flowchart TB
 
 1. **Index and base permissions.** First the permission spike. Then the sync-worker (`discover_sites`, `crawl_drive`, `index_item`, deletes, job queue), with permissions read in the same transaction as the chunks. Ship with the full query-side permission model: group lookup and consent, `org:members` for members only, guest handling, fail on lookup error. Only then point `sharepoint_search` at the index.
 2. **Permission freshness.** `sync_item_acl`, daily sweep, unresolved handling, new evals.
-3. **Inference-server.** `/embed` on Gemini, index generations.
+3. **Inference-server.** `/embed` on OpenAI or Gemini, index generations.
 4. **Multi-user server.** OAuth state and token cache in Postgres, restricted registration, audit log, rate limits. HTTPS for team use is not set up yet.
 5. **Agent.** `sharepoint_ask` with budgets, rate limits and answer evals.
 6. **Optional.** Graph webhooks for faster updates.

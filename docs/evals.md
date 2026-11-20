@@ -73,6 +73,8 @@ The first goal, so it has the most tests. Each check compares results against an
 | Graph permissions map to the right ACL | One file per sharing mechanism (site membership, direct user/group grant, site group, org link, anyone link, specific-people link, guest share, broken inheritance, nested group), each with a unique phrase; an expected-visibility table per persona | Live, then replayed | 0 leaks; misses listed |
 | Group lookup at query time | Real `principals_for` with each persona's token; group join and leave timed | Live | Join visible ≤ 5 min (cache); leave blocked at once by layer 2 |
 | Out-of-order permission writes, generation swaps | Database tests (`packages/rag/tests/test_index_store.py`) | Local | Pass |
+| A `sharepoint_ask` sandbox session holds only the caller's files | `acl_regression` mode `sandbox`: every file `search_with_files` puts in a session and every chunk `read_files` writes to it, with the live check letting everything through, so layer 1 alone must hold | Local | 0 leaks |
+| The sandbox isolates commands | `apps/sandbox/tests` against the running service: no network (the mcp-server included), no other session's files, no session id or key in any output, read-only outside `/work`, every limit, planted links and FIFOs | Local (Linux, the service's container) | Pass |
 
 A search that returns nothing would trivially "leak nothing", so vector and hybrid searches must also return results (as `acl_regression` already requires).
 
@@ -116,7 +118,7 @@ These need no embeddings, so they are the fastest suites to run.
 
 ### 5. Answer quality (`sharepoint_ask`)
 
-The agent runs as in production (`agent.ask`, the configured `ASK_MODEL` and budgets) with locally bound tools: search over the eval index, a flat `list_items`, and a `read_file` that follows production's rules (`graph.read_file_text`): text-based files and `.docx` only, cut to `MAX_FILE_CHARS`, and any other type, PDFs included, fails as it does live. Every FinanceBench filing is a PDF, so the agent answers from search snippets, as it would in production; scores would otherwise overstate real quality. A separate grader model, ideally from another model family, scores with versioned rubric prompts at temperature 0. Each question runs 3 times; we report the mean and spread.
+The agent runs as in production (`agent.ask`, the configured `ASK_MODEL` and budgets) with locally bound tools: search and `read_around` over the eval index, a flat `list_items`, and a `read_file` that follows production's rules (`graph.read_file_text`): text-based files and `.docx` only, cut to `MAX_FILE_CHARS`, and any other type, PDFs included, fails as it does live. Every FinanceBench filing is a PDF, so the agent answers from search passages and the passages around them, as it would in production; scores would otherwise overstate real quality. A separate grader model, ideally from another model family, scores with versioned rubric prompts at temperature 0. Each question runs 3 times; we report the mean and spread.
 
 | Measure | Dataset | How |
 |---|---|---|
@@ -190,7 +192,7 @@ The public datasets are large but generic, and their questions are not ones our 
 | `language` | yes | `en` or `es`, the question's language. The answer is expected in the same language |
 | `persona` | yes | Who asks: `alice`, `hr`, `exec`, `outsider` or `guest` (see [Live tenant](#live-tenant)) |
 | `kind` | yes | `fact`, `multi_doc`, `table`, `cross_lingual`, `restricted`, `unanswerable` or `injection` |
-| `expect` | yes | The `AskResult` status expected: `answered`, `not_found` or `refused` |
+| `expect` | yes | The `AskResult` status expected: `answered`, `partial`, `not_found` or `refused`. A `partial` item needs `answer`, `facts` and `sources` like an `answered` one, for the part that can be answered |
 | `answer` | if `answered` | The reference answer, short, as a careful colleague would put it |
 | `facts` | if `answered` | The individual claims a correct answer must make. Graded one by one |
 | `sources` | if `answered` | Paths (`site/library/path`) that must all be cited |
@@ -292,7 +294,7 @@ Later, once the system serves a real tenant: **performance and scale** ([section
 
 ## Open questions
 
-- **Grader model and budget** for agent evals. The default grader (`gemini-pro-latest`) is the same family as the default agent model, because only a Gemini key is set up; a grader from another family (`EVAL_GRADER_MODEL=anthropic:...`) would be better.
+- **Grader model and budget** for agent evals. The default grader (`gemini-pro-latest`) is now from another family than the default agent model (OpenAI's `gpt-6-luna` since 2026-11-19), as recommended. The agent baselines above were measured with `gemini-3.8-flash` and need a rerun with Luna.
 - **Who writes and reviews the golden set**, and who signs off on Spanish items.
 - **The test tenant:** who owns it, and the licence budget.
 - **FinanceBench's non-commercial license:** acceptable for how this project is used, or replace it (e.g. TechQA).

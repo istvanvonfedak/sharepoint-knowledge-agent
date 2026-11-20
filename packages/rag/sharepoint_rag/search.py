@@ -1,5 +1,6 @@
 """Permission-filtered retrieval over the active index generation: vector, keyword, or hybrid (RRF),
 then checked live against SharePoint (layer 2)."""
+import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Literal
@@ -12,11 +13,14 @@ from .generations import Generation
 
 Mode = Literal["vector", "keyword", "hybrid"]
 RRF_K = 60  # standard reciprocal-rank-fusion constant
-# Keyword results count for less than vector ones in the fusion. With RRF, a chunk found by both lists beats one
-# found by only one of them, so keyword evidence is only worth fusing when it is strong (MIN_MATCH below) and then
-# should break ties rather than overrule the vector ranking. Tuned on the evals (retrieval_multilingual,
-# answer_quality, acl_scale, retrieval_identifiers): with MIN_MATCH in place, 0.3-1.0 all score within 0.005.
-KEYWORD_WEIGHT = 0.5
+# Keyword results count as much as vector ones in the fusion. Keyword evidence is only fused when it is strong
+# (MIN_MATCH below), and it must be able to place a chunk only it found: the vector list always holds `candidates`
+# rows, so at 0.5 a keyword-only chunk ranked first (0.5/61) scored below the 50th vector one (1/110) and never
+# surfaced. That hid exact lookups in dense documents (a part number in a parts table) behind look-alike tables.
+# Below 1.0 the problem stays for small k: at 0.8 a keyword-only first hit still ranks behind vector hits 1-16.
+# Measured against 0.5: retrieval_identifiers +0.001, retrieval_multilingual and acl_scale within 0.003, FinanceBench
+# hit@1 0.859 -> 0.833 (2 of 78 questions, the right filing still in the top 5; hit@5 and hit@10 unchanged).
+KEYWORD_WEIGHT = 1.0
 # A keyword match must cover this share of the query's information (the summed IDF of its terms). Matching any one
 # term returned 99% of FinanceBench chunks for a typical question, so keyword results were noise ranked by ties;
 # requiring the rare terms keeps identifier lookups ("INC-48213") and drops "shares the word revenue".
@@ -30,9 +34,14 @@ EF_SEARCH = 400
 TS_CONFIGS = ("simple", "english", "spanish")
 MAX_TERMS = 64
 MAX_QUERY_CHARS = 2000  # callers truncate queries to this
+MAX_NEARBY = 3  # chunks before and after one, for nearby()
 
-_COLUMNS = "c.id, s.id, s.name, s.web_url, c.heading_path, c.text, s.drive_id, s.item_id"
+_COLUMNS = "c.id, s.id, s.name, s.web_url, c.heading_path, c.text, s.drive_id, s.item_id, c.ordinal"
 _FROM = "FROM {t} c JOIN sources s ON s.id = c.source_id"
+# Digit groups joined by hyphens, as the keyword column also stores them (generations.TSV). Only numbers of 6 or
+# more digits are joined in a query: "1-2" stays a range rather than becoming "12".
+_DIGIT_GROUPS = re.compile(r"[0-9]+(?:-[0-9]+)+")
+MIN_COMPACT_DIGITS = 6
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -46,13 +55,24 @@ class Hit:
     drive_id: str
     item_id: str
     score: float
+    ordinal: int = 0  # the chunk's position in its file
 
 
 def _row_to_hit(row, score: float) -> Hit:
     return Hit(
         chunk_id=row[0], source_id=row[1], name=row[2], web_url=row[3], heading_path=row[4],
-        text=row[5], drive_id=row[6], item_id=row[7], score=score,
+        text=row[5], drive_id=row[6], item_id=row[7], ordinal=row[8], score=score,
     )
+
+
+def compact_ids(query: str) -> str:
+    """The query with long hyphenated numbers written without hyphens, the form the keyword column also holds them
+    in, so "2520-01-149-1221" finds "2520011491221" and the other way round."""
+    def join(m: re.Match) -> str:
+        digits = m.group().replace("-", "")
+        return digits if len(digits) >= MIN_COMPACT_DIGITS else m.group()
+
+    return _DIGIT_GROUPS.sub(join, query)
 
 
 async def search(
@@ -67,7 +87,23 @@ async def search(
     generation: Generation | None = None,
     exclude_sources: list[int] = (),
 ) -> list[Hit]:
-    """Top-k chunks the caller may read. `principals` = the user's id, their group ids, and any
+    """Top-k chunks the caller may read (see ranked())."""
+    return (await ranked(conn, query_text=query_text, query_vec=query_vec, principals=principals, mode=mode,
+                         candidates=candidates, generation=generation, exclude_sources=exclude_sources))[:k]
+
+
+async def ranked(
+    conn: psycopg.AsyncConnection,
+    *,
+    query_text: str,
+    query_vec: list[float],
+    principals: list[str],
+    mode: Mode = "hybrid",
+    candidates: int = 50,
+    generation: Generation | None = None,
+    exclude_sources: list[int] = (),
+) -> list[Hit]:
+    """Every candidate chunk the caller may read, best first: up to `candidates` from each ranker, fused. `principals` = the user's id, their group ids, and any
     org-wide markers; a chunk is visible iff its `acl` overlaps them. The ACL filter is part of the
     SQL WHERE clause, so restricted chunks never enter ranking. There is no unfiltered path: an empty
     principal list is refused rather than treated as "no filter". `exclude_sources` leaves out files the live check
@@ -103,8 +139,16 @@ async def search(
         for rank, row in enumerate(results, 1):
             scores[row[0]] = scores.get(row[0], 0.0) + weight / (RRF_K + rank)
             rows[row[0]] = row
-    best = sorted(scores, key=lambda c: (-scores[c], c))[:k]  # equal scores: lowest chunk id, so runs agree
+    best = sorted(scores, key=lambda c: (-scores[c], c))  # equal scores: lowest chunk id, so runs agree
     return [_row_to_hit(rows[i], scores[i]) for i in best]
+
+
+def files(hits: list[Hit], limit: int = 50) -> list[Hit]:
+    """The files among the first `limit` hits, best first, each as its best hit."""
+    best: dict[tuple[str, str], Hit] = {}
+    for h in hits[:limit]:
+        best.setdefault((h.drive_id, h.item_id), h)
+    return list(best.values())
 
 
 def _term(i: int) -> str:
@@ -127,7 +171,7 @@ async def _keyword(conn, gen: Generation, from_: str, visible: str, query_text: 
     rows = await (await conn.execute(
         "SELECT u.lexeme, numnode(plainto_tsquery('english', u.lexeme)) > 0 AND numnode(plainto_tsquery('spanish', u.lexeme)) > 0 "
         "FROM unnest(to_tsvector('simple', %s)) u ORDER BY u.positions[1]",
-        (query_text,),
+        (compact_ids(query_text),),
     )).fetchall()
     terms = ([t for t, content in rows if content] or [t for t, _ in rows])[:MAX_TERMS]
     if not terms:
@@ -151,6 +195,56 @@ async def _keyword(conn, gen: Generation, from_: str, visible: str, query_text: 
         args,
     )
     return await cur.fetchall()
+
+
+async def nearby(
+    conn: psycopg.AsyncConnection,
+    *,
+    source_id: int,
+    ordinal: int,
+    principals: list[str],
+    before: int = 1,
+    after: int = 1,
+    generation: Generation | None = None,
+) -> list[Hit]:
+    """A file's chunks from `before` chunks ahead of chunk `ordinal` to `after` past it, in document order: what
+    surrounds a search hit, for files that can't be read whole (a PDF). Filtered by the caller's principals exactly
+    as search() is, so it returns nothing the caller couldn't find by searching; the live check is the caller's."""
+    if not principals or not all(isinstance(p, str) and p for p in principals):
+        raise ValueError("principals are required")
+    before, after = (max(0, min(int(n), MAX_NEARBY)) for n in (before, after))
+    gen = generation or await generations.active(conn)
+    from_ = sql.SQL(_FROM).format(t=gen.table).as_string(conn)
+    cur = await conn.execute(
+        f"SELECT {_COLUMNS} {from_} WHERE c.source_id = %(s)s AND c.ordinal BETWEEN %(lo)s AND %(hi)s "
+        f"AND c.acl && %(p)s::text[] ORDER BY c.ordinal",
+        {"s": source_id, "lo": ordinal - before, "hi": ordinal + after, "p": principals},
+    )
+    return [_row_to_hit(row, 0.0) for row in await cur.fetchall()]
+
+
+async def file_chunks(
+    conn: psycopg.AsyncConnection,
+    *,
+    source_ids: list[int],
+    principals: list[str],
+    generation: Generation | None = None,
+) -> dict[int, list[Hit]]:
+    """Every chunk of each file, in file order, filtered by the caller's principals as search() is; the live check is
+    the caller's. A file the caller can't read is missing from the result."""
+    if not principals or not all(isinstance(p, str) and p for p in principals):
+        raise ValueError("principals are required")
+    gen = generation or await generations.active(conn)
+    from_ = sql.SQL(_FROM).format(t=gen.table).as_string(conn)
+    cur = await conn.execute(
+        f"SELECT {_COLUMNS} {from_} WHERE c.source_id = ANY(%(s)s::bigint[]) AND c.acl && %(p)s::text[] "
+        f"ORDER BY c.source_id, c.ordinal",
+        {"s": list(source_ids), "p": principals},
+    )
+    out: dict[int, list[Hit]] = {}
+    for row in await cur.fetchall():
+        out.setdefault(row[1], []).append(_row_to_hit(row, 0.0))
+    return out
 
 
 # Given (drive_id, item_id) pairs, returns the subset the caller can open right now.

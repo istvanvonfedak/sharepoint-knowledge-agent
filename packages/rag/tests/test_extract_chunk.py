@@ -1,8 +1,9 @@
 import io
+import random
 import zipfile
 
 import pytest
-from sharepoint_rag.chunk import chunk_sections
+from sharepoint_rag.chunk import chunk_sections, rejoin, rejoin_spans
 from sharepoint_rag.extract import ExtractionError, Section, UnsupportedFileType, extract
 from tests.testing_support import text_pdf
 
@@ -143,3 +144,57 @@ def test_chunk_rows_start_every_heading_with_the_document_title():
     rows = chunk_rows("Ulta Beauty 10-K 2023.md", b"# Results\n\nRevenue grew.\n")
     assert [r.heading_path for r in rows] == ["Ulta Beauty 10-K 2023 > Results"]
     assert chunk_rows("notes.md", b"no heading here", title="")[0].heading_path is None
+
+
+def _words(rng, n):
+    return " ".join(rng.choice(["oil", "crankcase", "capacity", "7", "quarts", "with", "filter.", "CUCV", "M1008", "see",
+                                "table", "1-2", "Page", "........", "NSN", "2520-01-149-1221"]) for _ in range(n))
+
+
+@pytest.mark.parametrize("seed", range(40))
+def test_rejoin_gives_back_each_sections_text_once(seed):
+    """Chunks overlap by up to OVERLAP_CHARS; the file text rebuilt from them must hold every word exactly once."""
+    rng = random.Random(seed)
+    sections = []
+    for page in range(rng.randint(1, 4)):
+        # Short paragraphs (overlap carried as a tail) and long ones (cut inside, with the overlap built in).
+        paras = [_words(rng, rng.choice([3, 30, 120, 400, 900])) for _ in range(rng.randint(1, 8))]
+        sections.append(Section(f"Manual > Page {page % 3}", "\n".join(paras)))  # a heading can come back later
+    chunks = chunk_sections(sections)
+    rebuilt = rejoin([(c.heading_path, c.text) for c in chunks])
+
+    expected: list[tuple[str, str]] = []
+    for s in sections:  # consecutive sections with one heading come back as one
+        if expected and expected[-1][0] == s.heading_path:
+            expected[-1] = (s.heading_path, expected[-1][1] + "\n" + s.text)
+        else:
+            expected.append((s.heading_path, s.text))
+    assert [h for h, _ in rebuilt] == [h for h, _ in expected]
+    for (_, got), (_, want) in zip(rebuilt, expected):
+        assert got.split() == want.split()
+
+
+def test_rejoin_keeps_text_that_only_looks_like_an_overlap():
+    chunks = [("P1", "first part ends with the same words"), ("P1", "same words start the next chunk"),
+              ("P1", "words\nare repeated but were not carried over"), ("P2", "a new section never loses its start")]
+    assert rejoin(chunks) == [
+        ("P1", "first part ends with the same words\nsame words start the next chunk\nwords\nare repeated but were not carried over"),
+        ("P2", "a new section never loses its start"),
+    ]
+
+
+def test_rejoin_spans_say_where_each_chunk_is():
+    rng = random.Random(7)
+    words = "oil the capacity quarts engine filter\nnote".split(" ")
+    sections = [Section(f"Page {i}", " ".join(rng.choice(words) for _ in range(rng.randint(50, 700)))) for i in range(4)]
+    chunks = [(c.heading_path, c.text) for c in chunk_sections(sections)]
+    joined, spans = rejoin_spans(chunks)
+    assert len(spans) == len(chunks)
+    for (heading, text), (i, start, end) in zip(chunks, spans):
+        assert joined[i][0] == heading and joined[i][1][start:end] == text
+
+
+def test_rejoin_drops_a_short_chunk_repeated_whole():
+    # chunk_sections repeats a chunk shorter than the overlap whole at the start of the next one.
+    chunks = [("H", "x" * 300), ("H", "short"), ("H", "short\nnext part")]
+    assert rejoin(chunks, overlap=200) == [("H", "x" * 300 + "\nshort\nnext part")]

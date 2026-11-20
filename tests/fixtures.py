@@ -9,12 +9,17 @@ Without it those tests are skipped.
 """
 import os
 
-import psycopg
-import pytest
-from psycopg import sql
-from psycopg.conninfo import make_conninfo
+# Tests never send traces to LangSmith: importing mcp_server loads .env.mcp, which turns tracing on for local runs
+# of the server. Set before any test module is imported, and load_dotenv never overrides a variable already set.
+os.environ["LANGSMITH_TRACING"] = "false"
+os.environ["LANGCHAIN_TRACING_V2"] = "false"
 
-from tests.testing_support import TEST_DIMENSIONS, fake_vector
+import psycopg  # noqa: E402
+import pytest  # noqa: E402
+from psycopg import sql  # noqa: E402
+from psycopg.conninfo import make_conninfo  # noqa: E402
+
+from tests.testing_support import TEST_DIMENSIONS, fake_vector  # noqa: E402
 
 
 @pytest.fixture(scope="session")

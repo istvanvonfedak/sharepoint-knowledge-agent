@@ -23,9 +23,14 @@ services:
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-gemini-embedding-001}
       EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-1536}
       UNRESOLVED_ACL_POLICY: ${UNRESOLVED_ACL_POLICY:-hide}
-      # Used by sharepoint_ask (Gemini by default). With ASK_MODEL=none or another provider, set this to "" so
-      # only the inference-server holds the key: this is the most exposed service.
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      # Used by sharepoint_ask (OpenAI by default). With ASK_MODEL=none or another provider, set this to "" so
+      # only the inference-server holds the key: this is the most exposed service. A Gemini ASK_MODEL takes
+      # GEMINI_API_KEY from .env.mcp.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # sharepoint_ask's code interpreter (docs/code-interpreter.md): off, or local with the sandbox service below.
+      ASK_SANDBOX: ${ASK_SANDBOX:-off}
+      SANDBOX_URL: http://sandbox:8000
+      SANDBOX_API_KEY: ${SANDBOX_API_KEY:-}
     restart: unless-stopped
     ports:
       # Loopback only: the server is plain HTTP, reachable from this machine alone.
@@ -33,7 +38,7 @@ services:
     depends_on:
       db: {condition: service_healthy}
       inference-server: {condition: service_started}
-    networks: [default, backend]
+    networks: [default, backend, sandbox]
 
   sync-worker:
     build:
@@ -66,9 +71,42 @@ services:
     restart: unless-stopped
     environment:
       INFERENCE_API_KEY: *inference-key
-      # Chunk text is sent to Google's Gemini API.
+      # Chunk text is sent to the embedding model's provider: Google, or OpenAI for an openai: generation.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      OPENAI_EMBED_TOKENS_PER_MINUTE: ${OPENAI_EMBED_TOKENS_PER_MINUTE:-900000}
+      # Embedding runs with their token counts (never document text) in LangSmith, if tracing is on in .env.
+      LANGSMITH_TRACING: ${LANGSMITH_TRACING:-false}
+      LANGSMITH_ENDPOINT: ${LANGSMITH_ENDPOINT:-https://api.smith.langchain.com}
+      LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
+      LANGSMITH_AGENT_ID: ${LANGSMITH_AGENT_ID:-}
+      LANGSMITH_AGENT_ENVIRONMENT: ${LANGSMITH_AGENT_ENVIRONMENT:-}
     networks: [default, backend]
+
+  # Runs sharepoint_ask's shell commands (ASK_SANDBOX=local). Started only with --profile sandbox. Commands are
+  # model-written, so it holds no secrets but its own key, and its network reaches nothing but the mcp-server.
+  sandbox:
+    profiles: [sandbox]
+    build:
+      context: ..
+      dockerfile: apps/sandbox/Dockerfile
+    # gVisor: nsjail needs the privileges below, which must not reach the host kernel. Docker Desktop on a Mac has no
+    # gVisor: SANDBOX_RUNTIME=runc there, for development only.
+    runtime: ${SANDBOX_RUNTIME:-runsc}
+    environment:
+      SANDBOX_API_KEY: ${SANDBOX_API_KEY:-}  # the service refuses to start without one
+    cap_add: [SYS_ADMIN, SETUID, SETGID, CHOWN]  # namespaces and mounts per command, and the per-session uids
+    security_opt:
+      - seccomp=unconfined  # Docker's profile blocks the unshare and mount calls nsjail makes
+      - apparmor=unconfined
+      - systempaths=unconfined  # each command mounts its own /proc, which Docker's masked paths prevent
+    read_only: true  # everything outside /tmp
+    tmpfs:
+      - /tmp:size=64m,mode=1777  # sessions are tmpfs mounts of their own below it, each capped
+    mem_limit: 4g  # session files live in memory
+    pids_limit: 1024
+    restart: unless-stopped
+    networks: [sandbox]
 
   db:
     image: pgvector/pgvector:pg17
@@ -91,6 +129,8 @@ services:
 
 networks:
   backend:
+  sandbox:
+    internal: true  # no route out: only the mcp-server and the sandbox are on it
 
 volumes:
   pgdata:
