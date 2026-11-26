@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Golden set review</title>
+<style>
+  :root {
+    --bg: #fafaf8; --panel: #fff; --text: #1d1d1b; --muted: #6b6b66; --line: #e2e1dc; --accent: #2557d6;
+    --accent-bg: #e8eefc; --ok: #1f7a3d; --ok-bg: #e3f4e8; --bad: #b3261e; --bad-bg: #fbe7e5; --warn-bg: #fff3d6;
+    --hit: rgba(255, 214, 0, .45); --hit-line: #d4a900; --box: rgba(37, 87, 214, .18); --box-line: #2557d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161615; --panel: #1f1f1d; --text: #ececE8; --muted: #9a9a93; --line: #34342f; --accent: #7ba2ff;
+      --accent-bg: #202a45; --ok: #6fd18c; --ok-bg: #1b3324; --bad: #ff8a80; --bad-bg: #3b1f1d; --warn-bg: #3a3118;
+      --hit: rgba(255, 214, 0, .35); --hit-line: #e6c200; --box: rgba(123, 162, 255, .22); --box-line: #7ba2ff;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, sans-serif; display: grid; grid-template-columns: 300px 420px 1fr; }
+  body.no-viewer { grid-template-columns: 300px 1fr; }
+  body.no-viewer #viewer { display: none; }
+  section { min-width: 0; height: 100vh; overflow: auto; border-right: 1px solid var(--line); }
+  section:last-child { border-right: 0; }
+  button, select, input { font: inherit; color: inherit; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; }
+  button { cursor: pointer; } button:hover { border-color: var(--accent); }
+  button.on { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
+  .muted { color: var(--muted); } .small { font-size: 12px; }
+  .badge { display: inline-block; font-size: 11px; padding: 0 6px; border-radius: 9px; background: var(--line); color: var(--muted); margin-right: 4px; white-space: nowrap; }
+  .badge.ok { background: var(--ok-bg); color: var(--ok); } .badge.bad { background: var(--bad-bg); color: var(--bad); }
+
+  #list .filters { position: sticky; top: 0; background: var(--bg); padding: 10px; border-bottom: 1px solid var(--line); display: grid; gap: 6px; z-index: 1; }
+  #list .filters input[type=search] { width: 100%; }
+  #list .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .q { padding: 8px 10px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .q:hover { background: var(--panel); } .q.active { background: var(--accent-bg); }
+  .q .id { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--muted); }
+
+  #detail { padding: 14px 16px 40px; }
+  #review { position: sticky; top: -14px; z-index: 1; margin: -14px -16px 12px; padding: 8px 16px; background: var(--panel); border-bottom: 1px solid var(--line); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  #review .msg { flex: 1 1 100%; font-size: 12px; } #review .msg.err { color: var(--bad); } #review .msg.ok { color: var(--ok); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  textarea.edit { width: 100%; min-height: 120px; font: 12px/1.45 ui-monospace, monospace; background: var(--bg); color: inherit; border: 1px solid var(--line); border-radius: 6px; padding: 6px; resize: vertical; }
+  #detail h2 { font-size: 17px; margin: 6px 0 8px; line-height: 1.35; }
+  .bucket { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); padding: 4px 12px 10px; margin-bottom: 14px; }
+  .bucket > h3 { margin: 8px 0 4px !important; font-family: ui-monospace, monospace; font-size: 12px !important; text-transform: none !important; color: var(--accent) !important; }
+  .field { padding: 6px 0; border-top: 1px dashed var(--line); } .field:first-of-type { border-top: 0; }
+  .field .key { font: 11px ui-monospace, monospace; color: var(--muted); margin-bottom: 2px; }
+  .field .question { font-weight: 600; font-size: 15px; }
+  .json { margin: 0; white-space: pre-wrap; font: 12px ui-monospace, monospace; }
+  .card { background: var(--bg) !important; }
+  #detail h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 18px 0 6px; }
+  #detail ul { margin: 0; padding-left: 18px; }
+  .answer { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+  .card { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; cursor: pointer; }
+  .card:hover { border-color: var(--accent); } .card.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-bg); }
+  .card .doc { font-weight: 600; word-break: break-all; }
+  .card blockquote { margin: 6px 0; padding: 2px 8px; border-left: 3px solid var(--hit-line); background: var(--warn-bg); }
+  .chip { display: inline-block; margin: 2px 4px 2px 0; padding: 0 8px; border: 1px solid var(--line); border-radius: 9px; font-size: 12px; background: var(--bg); cursor: pointer; }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  .doclink { cursor: pointer; color: var(--accent); word-break: break-all; display: block; }
+
+  #viewer { display: flex; flex-direction: column; background: var(--bg); }
+  #bar { position: sticky; top: 0; z-index: 2; background: var(--panel); border-bottom: 1px solid var(--line); padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  #bar .name { font-weight: 600; word-break: break-all; flex: 1 1 100%; }
+  #status { flex: 1 1 100%; }
+  #drawn { flex: 1 1 100%; font-family: ui-monospace, monospace; font-size: 12px; background: var(--warn-bg); padding: 4px 8px; border-radius: 6px; }
+  #stage { padding: 16px; overflow: auto; flex: 1; }
+  #page { position: relative; margin: 0 auto; box-shadow: 0 1px 8px rgba(0,0,0,.25); background: #fff; width: max-content; }
+  #page canvas { display: block; }
+  #overlay { position: absolute; inset: 0; }
+  #overlay.draw { cursor: crosshair; }
+  .hit { position: absolute; background: var(--hit); border-bottom: 2px solid var(--hit-line); pointer-events: none; }
+  .box { position: absolute; background: var(--box); border: 2px solid var(--box-line); }
+  .box.flash { animation: flash 1.2s ease-out 2; }
+  .box span { position: absolute; top: -18px; left: -2px; font-size: 11px; background: var(--box-line); color: #fff; padding: 0 5px; border-radius: 3px; white-space: nowrap; }
+  .sketch { position: absolute; border: 2px dashed #d4380d; background: rgba(212, 56, 13, .12); pointer-events: none; }
+  @keyframes flash { 50% { background: rgba(37, 87, 214, .55); } }
+  #text { white-space: pre-wrap; max-width: 80ch; margin: 0 auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px 20px; font: 13px/1.55 ui-monospace, monospace; }
+  #text mark { background: var(--hit); border-bottom: 2px solid var(--hit-line); color: inherit; }
+  .empty { margin: 60px auto; text-align: center; color: var(--muted); max-width: 40ch; }
+</style>
+</head>
+<body>
+<section id="list">
+  <div class="filters">
+    <input id="search" type="search" placeholder="Search questions, answers, ids…">
+    <div class="row">
+      <select id="kind"><option value="">any kind</option></select>
+      <select id="expect"><option value="">any expect</option></select>
+      <select id="status"><option value="">any status</option></select>
+      <label class="small"><input id="evidenceOnly" type="checkbox"> with evidence</label>
+    </div>
+    <div class="small muted" id="count"></div>
+  </div>
+  <div id="items"></div>
+</section>
+<section id="detail"><div class="empty">Pick a question. <br><span class="small">j / k: next / previous question · [ / ]: previous / next page</span></div></section>
+<section id="viewer">
+  <div id="bar" hidden>
+    <div class="name"><button id="close" title="Close the document pane (Esc)" style="float:right;margin-left:8px">✕ Close</button><span id="docName"></span></div>
+    <span id="pager">
+      <button id="prev">‹</button> <span id="pageNo"></span> <button id="next">›</button>
+      <input id="goto" size="4" placeholder="page" title="Go to page, then Enter">
+    </span>
+    <span><button id="zoomOut">−</button> <button id="zoomIn">+</button></span>
+    <button id="drawBtn" title="Drag on the page to measure a box to paste into the item's evidence">Draw box</button>
+    <div id="status" class="small muted"></div>
+    <div id="drawn" hidden></div>
+  </div>
+  <div id="stage"><div class="empty">Click an evidence entry, a page or a box to open the document here.</div></div>
+</section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+const $ = (id) => document.getElementById(id);
+const el = (tag, attrs = {}, ...kids) => {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") node.className = v;
+    else if (k.startsWith("on")) node.addEventListener(k.slice(2), v);
+    else if (v !== false && v != null) node.setAttribute(k, v);
+  }
+  for (const kid of kids.flat(Infinity)) if (kid != null && kid !== false) node.append(kid);
+  return node;
+};
+
+let data = { items: [], docs: {} };
+let shown = [];
+let current = null;                // the open item
+let view = null;                   // { doc, page, entry, pdf, zoom, quote, box }
+let token = 0;                     // drops the result of a render a newer one has replaced
+const pdfs = new Map();
+let drawing = false;
+
+// ---- text matching: ignores whitespace, case and dash variants, so a quote survives line breaks ----------------
+const squash = (s) => s.toLowerCase().replace(/[‐-―−]/g, "-").replace(/[‘’]/g, "'").replace(/[“”]/g, '"');
+function indexText(text, loose = false) {
+  let flat = "", map = [];
+  for (let i = 0; i < text.length; i++) {
+    if (/\s/.test(text[i])) continue;
+    if (loose && !/[\p{L}\p{N}]/u.test(text[i])) continue;
+    flat += squash(text[i]); map.push(i);
+  }
+  return { flat, map };
+}
+/** [start, end) in the original text of the quote (using its prefix to pick between repeats), or null. */
+function findQuote(text, quote) {
+  if (!quote?.exact) return null;
+  const { flat, map } = indexText(text);
+  const exact = indexText(quote.exact).flat;
+  if (!exact) return null;
+  let at = -1;
+  if (quote.prefix) {
+    const withPrefix = indexText(quote.prefix).flat + exact;
+    const hit = flat.indexOf(withPrefix);
+    if (hit >= 0) at = hit + withPrefix.length - exact.length;
+  }
+  if (at < 0) at = flat.indexOf(exact);
+  if (at >= 0) return [map[at], map[at + exact.length - 1] + 1];
+  // Symbols differ between the indexer and the browser (N•m is extracted as Nm): compare letters and digits only.
+  const lf = indexText(text, true), le = indexText(quote.exact, true).flat;
+  at = le ? lf.flat.indexOf(le) : -1;
+  if (at >= 0) return [lf.map[at], lf.map[at + le.length - 1] + 1];
+  // A long quote can differ in the middle from what the browser extracts (the indexer doubles the letters of bold
+  // text: NNOOTTEE): mark from where it starts to where it ends.
+  if (exact.length < 120) return null;
+  const head = flat.indexOf(exact.slice(0, 50));
+  const tail = head < 0 ? -1 : flat.indexOf(exact.slice(-50), head);
+  return tail < 0 ? null : [map[head], map[tail + 49] + 1];
+}
+
+// ---- list ---------------------------------------------------------------------------------------------------
+const evidenceOf = (it) => it.expected_outputs.evidence || [];
+function applyFilters() {
+  const q = $("search").value.trim().toLowerCase(), kind = $("kind").value, expect = $("expect").value, status = $("status").value, ev = $("evidenceOnly").checked;
+  shown = data.items.filter((it) => {
+    const m = it.metadata, o = it.expected_outputs;
+    if (kind && m.kind !== kind) return false;
+    if (expect && o.expect !== expect) return false;
+    if (status && m.status !== status) return false;
+    if (ev && !evidenceOf(it).length) return false;
+    return !q || [m.id, it.inputs.question, o.answer, m.notes].join(" ").toLowerCase().includes(q);
+  });
+  $("count").textContent = `${shown.length} of ${data.items.length} questions`;
+  $("items").replaceChildren(...shown.map((it) => el("div", { class: "q" + (it === current ? " active" : ""), "data-id": it.metadata.id, onclick: () => select(it) },
+    el("div", {}, el("span", { class: "id" }, it.metadata.id + " "), it.inputs.question),
+    el("div", {}, el("span", { class: "badge" }, it.metadata.kind), el("span", { class: "badge" }, it.expected_outputs.expect),
+      el("span", { class: "badge " + (it.metadata.status === "reviewed" ? "ok" : it.metadata.status === "retired" ? "bad" : "") }, it.metadata.status),
+      evidenceOf(it).length ? el("span", { class: "badge ok" }, `${evidenceOf(it).length} evidence`) : null))));
+}
+
+function move(step) {
+  const i = shown.indexOf(current);
+  const next = shown[Math.min(Math.max(i + step, 0), shown.length - 1)];
+  if (next) select(next);
+}
+
+// ---- detail -------------------------------------------------------------------------------------------------
+const isPdf = (name) => name.toLowerCase().endsWith(".pdf");
+const missing = (name) => !data.docs[name] && el("span", { class: "badge bad", title: "Not on disk: run scripts/fetch_golden_files.py" }, "missing file");
+
+const DOC_FIELDS = new Set(["sources", "also_acceptable", "must_not_see"]);
+
+function field(bucket, key, value, it) {
+  let body;
+  if (key === "evidence") body = el("div", {}, value.map((e, n) => entryCard(e, n)));
+  else if (DOC_FIELDS.has(key)) body = el("div", {}, value.map((n) => el("a", { class: "doclink", onclick: () => open({ doc: n, page: 1 }) }, n, " ", missing(n))));
+  else if (Array.isArray(value) && value.every((v) => typeof v === "string")) body = el("ul", {}, value.map((v) => el("li", {}, v)));
+  else if (typeof value === "object" && value !== null) body = el("pre", { class: "json" }, JSON.stringify(value, null, 2));
+  else body = el("div", { class: key === "question" ? "question" : "" }, String(value === "" ? "(empty)" : value));
+  return el("div", { class: "field" }, el("div", { class: "key" }, key), body);
+}
+
+let editing = false;
+const STATUSES = ["draft", "reviewed", "retired"];
+const remembered = () => { try { return localStorage.getItem("reviewer") || ""; } catch { return ""; } };
+
+function select(it, reopen = true) {
+  current = it; editing = false;
+  location.hash = it.metadata.id;
+  document.querySelectorAll(".q").forEach((n) => n.classList.toggle("active", n.dataset.id === it.metadata.id));
+  document.querySelector(".q.active")?.scrollIntoView({ block: "nearest" });
+  renderDetail();
+  $("detail").scrollTop = 0;
+  if (!reopen) return;
+  const entries = evidenceOf(it);
+  const first = entries.find((e) => data.docs[e.doc]) || entries[0];
+  if (first) openEntry(first, first.pages?.[0]);
+  else if (it.expected_outputs.sources?.[0]) open({ doc: it.expected_outputs.sources[0], page: 1 });
+  else clearViewer();
+}
+
+function renderDetail(message = "", kind = "") {
+  const it = current, scroll = $("detail").scrollTop;
+  const buckets = ["inputs", "expected_outputs", "metadata"];
+  const areas = editing ? Object.fromEntries(buckets.map((b) => [b, el("textarea", { class: "edit", spellcheck: "false", rows: Math.min(JSON.stringify(it[b], null, 2).split("\n").length + 1, 30) })])) : {};
+  for (const b of buckets) if (editing) areas[b].value = JSON.stringify(it[b], null, 2);
+  $("detail").replaceChildren(el("div", {}, reviewBar(it, areas, message, kind), buckets.map((bucket) =>
+    el("div", { class: "bucket" }, el("h3", {}, bucket),
+      editing ? areas[bucket] : Object.entries(it[bucket] || {}).map(([key, value]) => field(bucket, key, value, it))))));
+  $("detail").scrollTop = scroll;
+}
+
+function reviewBar(it, areas, message, kind) {
+  const m = it.metadata;
+  const msg = el("div", { class: "msg " + kind }, message);
+  if (editing) {
+    return el("div", { id: "review" },
+      el("button", { class: "primary", onclick: () => {
+        try { commit(Object.fromEntries(Object.entries(areas).map(([b, a]) => [b, JSON.parse(a.value)]))); }
+        catch (err) { renderDetailKeepEdits(areas, "Not valid JSON: " + err.message); }
+      } }, "Save"),
+      el("button", { onclick: () => { editing = false; renderDetail(); } }, "Cancel"),
+      el("span", { class: "muted small" }, "Editing the raw JSON of all three buckets"), msg);
+  }
+  const status = el("select", {}, STATUSES.map((s) => el("option", { value: s, selected: s === m.status }, s)));
+  const reviewer = el("input", { size: 14, placeholder: "reviewer", value: [remembered(), m.reviewer, data.me].find((r) => r && r !== m.author) || "" });
+  const set = (to, next) => {
+    try { localStorage.setItem("reviewer", reviewer.value.trim()); } catch {}
+    const copy = structuredClone(it);
+    copy.metadata.status = to; copy.metadata.reviewer = reviewer.value.trim();
+    commit(copy, next);
+  };
+  return el("div", { id: "review" },
+    el("button", { onclick: () => { editing = true; renderDetail(); } }, "Edit"),
+    status, reviewer,
+    el("button", { onclick: () => set(status.value) }, "Save status"),
+    el("button", { class: "primary", title: "Set status to reviewed with this reviewer, save, and go to the next question", onclick: () => set("reviewed", true) }, "Mark reviewed → next"),
+    msg);
+}
+
+function renderDetailKeepEdits(areas, message) {
+  const values = Object.fromEntries(Object.entries(areas).map(([b, a]) => [b, a.value]));
+  renderDetail(message, "err");
+  document.querySelectorAll("textarea.edit").forEach((a, i) => { a.value = values[["inputs", "expected_outputs", "metadata"][i]]; });
+}
+
+/** Reload the items from disk, so edits made elsewhere (by a script, or Claude) show here and can't be overwritten. */
+async function refresh() {
+  data = await (await fetch("/api/items")).json();
+  current = data.items.find((i) => i.metadata.id === current?.metadata.id) || current;
+  applyFilters();
+}
+
+addEventListener("focus", async () => {
+  if (editing || !current) return;
+  const before = JSON.stringify(current);
+  await refresh();
+  if (JSON.stringify(current) !== before) renderDetail("Reloaded: this item changed on disk", "ok");
+});
+
+async function commit(item, next = false) {
+  const id = current.metadata.id;
+  try {
+    const res = await fetch("/api/item", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, item, base: current }) });
+    if (res.status === 409) { await refresh(); throw new Error(await res.text()); }
+    if (!res.ok) throw new Error(await res.text());
+    const fresh = await res.json();
+    data = fresh;
+    current = data.items.find((i) => i.metadata.id === id);
+    editing = false;
+    applyFilters();
+    if (next) return move(1);
+    renderDetail("Saved " + id, "ok");
+  } catch (err) {
+    renderDetail(err.message, "err");
+  }
+}
+
+function entryCard(e, n) {
+  const pdf = isPdf(e.doc);
+  return el("div", { class: "card", "data-entry": n, onclick: () => openEntry(e, e.pages?.[0]) },
+    el("div", { class: "doc" }, e.doc),
+    el("div", {}, el("span", { class: "badge " + (e.role === "also_acceptable" ? "" : "ok") }, e.role || "required"),
+      e.group ? el("span", { class: "badge" }, "group: " + e.group) : null, missing(e.doc)),
+    e.section ? el("div", { class: "small muted" }, "§ " + e.section) : null,
+    e.quote?.exact ? el("blockquote", {}, e.quote.exact) : null,
+    pdf ? el("div", { class: "small" }, "pages ",
+      (e.pages || []).map((p) => el("span", { class: "chip", onclick: (ev) => { ev.stopPropagation(); openEntry(e, p); } }, "p" + p)),
+      e.printed_page ? el("span", { class: "muted" }, ` (printed ${e.printed_page})`) : null) : null,
+    e.boxes?.length ? el("div", { class: "small" }, "boxes ",
+      e.boxes.map((b, i) => el("span", { class: "chip", onclick: (ev) => { ev.stopPropagation(); openEntry(e, b.page, i); } }, `▭ p${b.page} ${b.modality || ""}`))) : null);
+}
+
+// ---- viewer -------------------------------------------------------------------------------------------------
+function openEntry(entry, page, box = null) {
+  document.querySelectorAll(".card").forEach((c) => c.classList.toggle("active", c.dataset.entry == evidenceOf(current).indexOf(entry)));
+  return open({ doc: entry.doc, page: page || 1, entry, box });
+}
+
+function clearViewer() {
+  token++; view = null; $("bar").hidden = true;
+  document.body.classList.add("no-viewer");
+  $("stage").replaceChildren();
+}
+
+async function open(next) {
+  const mine = ++token;
+  document.body.classList.remove("no-viewer");
+  const sameDoc = view && view.doc === next.doc;
+  view = { zoom: sameDoc ? view.zoom : 1, ...next, quote: next.entry?.quote };
+  $("bar").hidden = false;
+  $("docName").textContent = next.doc;
+  $("drawn").hidden = true;
+  const missingFile = !data.docs[next.doc];
+  $("pager").hidden = !isPdf(next.doc); $("zoomIn").hidden = $("zoomOut").hidden = $("drawBtn").hidden = !isPdf(next.doc);
+  if (missingFile) {
+    $("status").textContent = "";
+    return $("stage").replaceChildren(el("div", { class: "empty" }, "This file is not on disk.", el("br"), el("code", {}, "python scripts/fetch_golden_files.py")));
+  }
+  $("status").textContent = "loading…";
+  try {
+    if (isPdf(next.doc)) await showPdf(mine); else await showText(mine);
+  } catch (err) {
+    if (mine === token) { $("status").textContent = ""; $("stage").replaceChildren(el("div", { class: "empty" }, "Could not open: " + err.message)); }
+  }
+}
+
+async function showText(mine) {
+  const text = await (await fetch("/file?doc=" + encodeURIComponent(view.doc))).text();
+  if (mine !== token) return;
+  const range = findQuote(text, view.quote);
+  const box = el("div", { id: "text" });
+  let mark = null;
+  if (range) { mark = el("mark", {}, text.slice(...range)); box.append(text.slice(0, range[0]), mark, text.slice(range[1])); } else box.textContent = text;
+  $("stage").replaceChildren(box);
+  mark?.scrollIntoView({ block: "center" });
+  $("status").textContent = view.quote ? (range ? "quote highlighted" : "quote not found in this file") : "";
+}
+
+function loadPdf(doc) {
+  if (!pdfs.has(doc)) pdfs.set(doc, pdfjsLib.getDocument({ url: "/file?doc=" + encodeURIComponent(doc), disableRange: true, disableStream: true }).promise);
+  return pdfs.get(doc);
+}
+
+async function showPdf(mine) {
+  const pdf = await loadPdf(view.doc);
+  if (mine !== token) return;
+  view.page = Math.min(Math.max(view.page, 1), pdf.numPages);
+  const page = await pdf.getPage(view.page);
+  const stage = $("stage");
+  const base = page.getViewport({ scale: 1 });
+  const scale = ((stage.clientWidth - 40) / base.width) * view.zoom;
+  const viewport = page.getViewport({ scale });
+  const ratio = window.devicePixelRatio || 1;
+  const canvas = el("canvas");
+  canvas.width = Math.floor(viewport.width * ratio); canvas.height = Math.floor(viewport.height * ratio);
+  canvas.style.width = viewport.width + "px"; canvas.style.height = viewport.height + "px";
+  const overlay = el("div", { id: "overlay", class: drawing ? "draw" : "" });
+  const holder = el("div", { id: "page", style: `width:${viewport.width}px;height:${viewport.height}px` }, canvas, overlay);
+  await page.render({ canvasContext: canvas.getContext("2d"), viewport, transform: [ratio, 0, 0, ratio, 0, 0] }).promise;
+  if (mine !== token) return;
+  stage.replaceChildren(holder);
+  $("pageNo").textContent = `${view.page} / ${pdf.numPages}`;
+  $("goto").value = "";
+
+  // the quote, found in the page's own text
+  let status = "";
+  if (view.quote) {
+    const rects = await quoteRects(page, viewport, view.quote);
+    if (mine !== token) return;
+    rects.forEach((r) => overlay.append(el("div", { class: "hit", style: `left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px` })));
+    status = rects.length ? "quote highlighted" : "quote not found in this page's text (a scan, or the wording differs)";
+    overlay.firstChild?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }
+  // the entry's boxes on this page
+  const boxes = (view.entry?.boxes || []).map((b, i) => [b, i]).filter(([b]) => b.page === view.page);
+  boxes.forEach(([b, i]) => {
+    const [x0, y0, x1, y1] = b.bbox;
+    const node = el("div", { class: "box" + (view.box === i ? " flash" : ""), style: `left:${x0 * 100}%;top:${y0 * 100}%;width:${(x1 - x0) * 100}%;height:${(y1 - y0) * 100}%` }, el("span", {}, b.modality || "box"));
+    overlay.append(node);
+    if (view.box === i) node.scrollIntoView({ block: "center", behavior: "smooth" });
+  });
+  if (boxes.length) status += (status ? " · " : "") + `${boxes.length} box${boxes.length > 1 ? "es" : ""} on this page`;
+  $("status").textContent = status;
+  attachDrawing(overlay, viewport);
+}
+
+async function quoteRects(page, viewport, quote) {
+  const content = await page.getTextContent();
+  let text = "";
+  const spans = content.items.filter((it) => it.str).map((it) => { const start = text.length; text += it.str + " "; return { it, start, len: it.str.length }; });
+  const range = findQuote(text, quote);
+  if (!range) return [];
+  const rects = [];
+  for (const { it, start, len } of spans) {
+    const a = Math.max(range[0], start), b = Math.min(range[1], start + len);
+    if (a >= b) continue;
+    const t = pdfjsLib.Util.transform(viewport.transform, it.transform);
+    const height = Math.hypot(t[2], t[3]), width = it.width * viewport.scale;
+    rects.push({ x: t[4] + (width * (a - start)) / len, y: t[5] - height, w: (width * (b - a)) / len, h: height });
+  }
+  return rects;
+}
+
+// ---- drawing a box, to copy into an item's evidence -----------------------------------------------------------
+function attachDrawing(overlay, viewport) {
+  overlay.addEventListener("mousedown", (down) => {
+    if (!drawing) return;
+    const area = overlay.getBoundingClientRect();
+    const point = (ev) => [Math.min(Math.max((ev.clientX - area.left) / area.width, 0), 1), Math.min(Math.max((ev.clientY - area.top) / area.height, 0), 1)];
+    const from = point(down), sketch = el("div", { class: "sketch" });
+    overlay.append(sketch);
+    const span = (to) => [Math.min(from[0], to[0]), Math.min(from[1], to[1]), Math.max(from[0], to[0]), Math.max(from[1], to[1])];
+    const move = (ev) => {
+      const [x0, y0, x1, y1] = span(point(ev));
+      sketch.style.cssText = `left:${x0 * 100}%;top:${y0 * 100}%;width:${(x1 - x0) * 100}%;height:${(y1 - y0) * 100}%`;
+    };
+    const up = (ev) => {
+      removeEventListener("mousemove", move); removeEventListener("mouseup", up);
+      const bbox = span(point(ev)).map((v) => Math.round(v * 1000) / 1000);
+      const json = JSON.stringify({ page: view.page, bbox, modality: "text" });
+      navigator.clipboard?.writeText(json).catch(() => {});
+      $("drawn").hidden = false; $("drawn").textContent = json + "   (copied)";
+    };
+    addEventListener("mousemove", move); addEventListener("mouseup", up);
+    down.preventDefault();
+  });
+}
+
+// ---- controls -------------------------------------------------------------------------------------------------
+const go = (page) => view && isPdf(view.doc) && open({ ...view, page, box: null });
+$("close").onclick = clearViewer;
+$("prev").onclick = () => go(view.page - 1);
+$("next").onclick = () => go(view.page + 1);
+$("goto").onkeydown = (ev) => { if (ev.key === "Enter" && +ev.target.value) go(+ev.target.value); };
+$("zoomIn").onclick = () => { view.zoom = Math.min(view.zoom * 1.25, 4); open({ ...view, zoom: view.zoom }); };
+$("zoomOut").onclick = () => { view.zoom = Math.max(view.zoom / 1.25, 0.4); open({ ...view, zoom: view.zoom }); };
+$("drawBtn").onclick = () => { drawing = !drawing; $("drawBtn").classList.toggle("on", drawing); $("overlay")?.classList.toggle("draw", drawing); };
+["search", "kind", "expect", "status", "evidenceOnly"].forEach((id) => $(id).addEventListener("input", applyFilters));
+addEventListener("keydown", (ev) => {
+  if (ev.target.matches("input, select") || ev.metaKey || ev.ctrlKey) return;
+  if (ev.key === "Escape") clearViewer();
+  else if (ev.key === "j") move(1); else if (ev.key === "k") move(-1);
+  else if (ev.key === "]") view && go(view.page + 1); else if (ev.key === "[") view && go(view.page - 1);
+});
+
+(async function init() {
+  data = await (await fetch("/api/items")).json();
+  for (const [id, key] of [["kind", (i) => i.metadata.kind], ["expect", (i) => i.expected_outputs.expect], ["status", (i) => i.metadata.status]])
+    [...new Set(data.items.map(key))].sort().forEach((v) => $(id).append(el("option", { value: v }, v)));
+  applyFilters();
+  const wanted = data.items.find((i) => i.metadata.id === location.hash.slice(1));
+  if (wanted || shown[0]) select(wanted || shown[0]);
+})();
+</script>
+</body>
+</html>

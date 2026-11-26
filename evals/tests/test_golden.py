@@ -1,31 +1,26 @@
 """The golden set's validator: the committed set is valid, and each rule catches what it should."""
-import copy
-
+from golden_items import changed
 from sharepoint_evals import golden
 
-GOOD = {"id": "g-9001", "status": "reviewed", "question": "How many days of annual leave do we get?", "language": "en",
-        "persona": "alice", "kind": "fact", "expect": "answered", "answer": "22 working days.", "facts": ["22 working days"],
-        "sources": ["eval-public/Documents/leave-policy.md"], "origin": "written", "author": "a", "reviewer": "b",
-        "added": "2026-11-18"}
+GOOD = {"inputs": {"question": "How many days of annual leave do we get?", "persona": "alice"},
+        "expected_outputs": {"expect": "answered", "answer": "22 working days.", "facts": ["22 working days"],
+                             "sources": ["eval-public/Documents/leave-policy.md"]},
+        "metadata": {"id": "g-9001", "status": "reviewed", "kind": "fact", "language": "en", "origin": "written",
+                     "author": "a", "reviewer": "b", "added": "2026-11-18"}}
 
 
 def problems(**changes):
-    item = copy.deepcopy(GOOD)
-    for k, v in changes.items():
-        if v is None:
-            item.pop(k)
-        else:
-            item[k] = v
-    return golden.validate([item])
+    return golden.validate([changed(GOOD, **changes)])
 
 
 def test_the_committed_set_is_valid_and_covers_every_kind_and_persona():
     assert golden.validate() == []
     items = golden.items()
-    assert {i["kind"] for i in items} == golden.KINDS
-    assert {i["persona"] for i in items} == set(golden.corpus().personas)
-    assert sum(i["language"] == "es" for i in items) * 4 >= len(items)
-    assert sum(i["kind"] == "restricted" for i in items) >= 10 and sum(i["kind"] == "unanswerable" for i in items) >= 10
+    kinds = [i["metadata"]["kind"] for i in items]
+    assert set(kinds) == golden.KINDS
+    assert {i["inputs"]["persona"] for i in items} == set(golden.corpus().personas)
+    assert sum(i["metadata"]["language"] == "es" for i in items) * 4 >= len(items)
+    assert kinds.count("restricted") >= 10 and kinds.count("unanswerable") >= 10
 
 
 def test_a_good_item_passes():

@@ -108,6 +108,20 @@ async def test_answer_with_validated_sources():
     assert '"passage": "P1"' in last.content and '"source_id": "S1"' in last.content
 
 
+async def test_the_users_region_goes_with_the_question_not_the_system_prompt():
+    plain, placed = (FakeModel([final({"source_id": "S1", "quote": "x"})]) for _ in range(2))
+    await run(plain)
+    await run(placed, region="the United States")
+    assert plain.requests[0][1].content == "How many leave days?"
+    assert placed.requests[0][1].content == "The user is based in the United States.\n\nHow many leave days?"
+    assert placed.requests[0][0].content == plain.requests[0][0].content
+
+
+@pytest.mark.parametrize("prompt", [agent.SYSTEM, agent.SYSTEM_SANDBOX])
+def test_the_prompt_asks_for_the_model_instead_of_guessing_between_vehicles(prompt):
+    assert "Please specify the make and model" in prompt and "can't be relied on" in prompt
+
+
 async def test_rejected_citations_get_one_chance_to_be_fixed():
     """A quote that isn't in the source is sent back once, so the fact's source isn't silently lost."""
     model = FakeModel([
@@ -125,6 +139,34 @@ async def test_rejected_citations_get_one_chance_to_be_fixed():
     # The second answer is accepted as it validates; there is no second round.
     assert result.status == "answered" and result.steps == 3
     assert result.sources[0]["quote"] == "Employees get 22 working days"
+
+
+async def test_a_plain_text_reply_is_told_once_to_answer_through_final_answer():
+    """Ending without final_answer would return an answer with no sources, so the model is sent back once."""
+    model = FakeModel([
+        reply(call("search", {"query": "leave", "limit": 5})),
+        AIMessage(content="22 days of leave."),
+        final({"source_id": "S1", "quote": "22 working days of annual leave"}, answer="22 days."),
+    ])
+    result = await run(model)
+    assert isinstance(model.requests[2][-1], HumanMessage) and "final_answer" in model.requests[2][-1].content
+    assert result.status == "answered" and result.steps == 3 and result.sources[0]["quote"] == "22 working days of annual leave"
+
+
+async def test_a_second_plain_text_reply_is_kept_without_sources():
+    model = FakeModel([
+        reply(call("search", {"query": "leave", "limit": 5})),
+        AIMessage(content="22 days."),
+        AIMessage(content="22 days of leave."),
+    ])
+    result = await run(model)
+    assert result.status == "answered" and result.answer == "22 days of leave." and result.sources == [] and result.steps == 3
+
+
+async def test_no_plain_text_nudge_without_room_left():
+    model = FakeModel([reply(call("search", {"query": "leave", "limit": 5})), AIMessage(content="22 days.")])
+    result = await run(model, max_steps=2)
+    assert result.status == "answered" and result.sources == [] and result.steps == 2
 
 
 async def test_no_fix_round_without_room_left():
@@ -722,3 +764,9 @@ async def test_a_revoked_sign_in_during_a_search_stops_the_run(tmp_path):
     t.read_files = read_files
     with pytest.raises(PermissionError):
         await agent.Loop(t, FakeSandbox(tmp_path)).run_tool("search", {"query": "oil", "limit": 5})
+
+
+async def test_a_plain_text_reply_before_anything_was_looked_up_is_not_nudged():
+    model = FakeModel([AIMessage(content="I can't help with that.")])
+    result = await run(model)
+    assert result.status == "answered" and result.sources == [] and result.steps == 1 and len(model.requests) == 1

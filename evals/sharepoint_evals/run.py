@@ -8,6 +8,8 @@
                  recall under the permission filter. Fails only if hybrid drops below a floor in FLOORS.
     agent        sharepoint_ask end to end: answer_quality, agent_safety, golden. Needs ASK_MODEL and a grader
                  (EVAL_GRADER_MODEL). Gates: no leaked canary, no foreign link, no golden permission failure.
+    judge        the grader itself: golden_judge grades hand-labelled cases and counts disagreements with the labels.
+                 Needs only EVAL_GRADER_MODEL. No pass bar yet: it reports false accepts and false rejects.
     live         against a seeded test tenant. Not built yet: it fails, so it can't be mistaken for a pass.
     all          regression and capability (the tiers that need no model and no tenant).
 
@@ -59,6 +61,7 @@ TIERS = {
     "regression": ["synthetic", "acl_scale", "extraction_robustness"],
     "capability": ["synthetic", "retrieval_multilingual", "retrieval_identifiers", "answer_quality", "acl_scale"],
     "agent": ["answer_quality", "agent_safety", "golden"],
+    "judge": ["golden_judge"],
     "live": [],
 }
 NEEDS_INDEX = {"synthetic", "acl_scale", "retrieval_multilingual", "retrieval_identifiers", "answer_quality",
@@ -70,10 +73,11 @@ class Options:
     log_dir: str | None
     sample: int | None
     allow_quick: bool
-    epochs: int
+    epochs: int | None  # None: the default, 3
     golden_drafts: bool
     update_snapshot: bool
     write_baseline: bool
+    allow_missing_data: bool = False  # agent tier: skipped items with permission checks don't fail the run
     base_labels: set[str] = field(default_factory=set)  # apply to every tier (sampled)
     labels: set[str] = field(default_factory=set)  # this tier's: base_labels plus quick or golden drafts
 
@@ -112,17 +116,28 @@ def capability_tasks(suite: str, o: Options) -> list:
     raise KeyError(suite)
 
 
+def judge_tasks(suite: str, o: Options) -> list:
+    if suite == "golden_judge":
+        from sharepoint_evals.judge import golden_judge, selected
+        if not selected(o.golden_drafts):  # an empty dataset is an error in Inspect
+            raise RuntimeError("golden_judge: no reviewed cases to score (pass --golden-drafts to score the drafts)")
+        return [golden_judge(epochs=o.epochs or 3, include_drafts=o.golden_drafts)]
+    raise KeyError(suite)
+
+
 def agent_tasks(suite: str, o: Options) -> list:
     if suite == "answer_quality":
         from sharepoint_evals.agent_evals import answer_quality
-        return [answer_quality(epochs=o.epochs, allow_quick=o.allow_quick)]
+        return [answer_quality(epochs=o.epochs or 3, allow_quick=o.allow_quick)]
     if suite == "agent_safety":
         from sharepoint_evals.agent_evals import agent_safety
-        return [agent_safety(epochs=o.epochs, allow_quick=o.allow_quick)]
+        return [agent_safety(epochs=o.epochs or 3, allow_quick=o.allow_quick)]
     if suite == "golden":
         from sharepoint_evals.golden import golden
-        task = golden(epochs=o.epochs, include_drafts=o.golden_drafts)
+        task = golden(epochs=o.epochs or 3, include_drafts=o.golden_drafts)
         if not len(task.dataset):
+            if task.metadata["skipped_missing_data"]:
+                raise RuntimeError("golden: every item to score needs files that aren't under data/ (see above)")
             raise RuntimeError("golden: no reviewed items to score (pass --golden-drafts to score the drafts)")
         return [task]
     raise KeyError(suite)
@@ -282,7 +297,7 @@ def _per_epoch(log, metric: str) -> list[float]:
     return [statistics.fmean(v) for _, v in sorted(by_epoch.items()) if v]
 
 
-def report_agent(log, base: dict, current: dict) -> bool:
+def report_agent(log, base: dict, current: dict, allow_missing_data: bool = False) -> bool:
     name, ok = _name(log), True
     metrics = [s.name for s in log.results.scores]
     epochs = log.eval.config.epochs or 1
@@ -304,6 +319,16 @@ def report_agent(log, base: dict, current: dict) -> bool:
             print(f"    GATE {metric}: failed in {len(bad)} run(s)")
             for sid, epoch, why in bad[:10]:
                 print(f"      {sid} (run {epoch}): {why}")
+    if skipped := (log.eval.metadata or {}).get("skipped_missing_data"):
+        from sharepoint_evals import golden
+        guarded = sorted(i["metadata"]["id"] for i in golden.items()
+                         if i["metadata"]["id"] in skipped and (i["expected_outputs"].get("must_not_see") or i["expected_outputs"].get("forbidden")))
+        print(f"    NOTE: {len(skipped)} item(s) were skipped because their files aren't under data/, so the gates above cover "
+              f"only the rest" + (f"; {len(guarded)} of them carry permission checks: {guarded[:8]}" if guarded else ""))
+        if guarded and not allow_missing_data:
+            ok = False
+            print("    GATE permissions: failed, because permission checks did not run. Fetch the files "
+                  "(scripts/fetch_golden_files.py) or pass --allow-missing-data to accept a run without them")
     grader_errors = [e for s in log.samples or [] for e in s.metadata.get("grader_errors", [])]
     if grader_errors:
         print(f"    grading failed {len(grader_errors)} time(s) (scored as missing), e.g. {grader_errors[0]}")
@@ -318,6 +343,40 @@ def report_agent(log, base: dict, current: dict) -> bool:
     return ok
 
 
+def report_judge(log, base: dict, current: dict) -> bool:
+    name = _name(log)
+    meta = log.eval.metadata or {}
+    epochs = log.eval.config.epochs or 1
+    print(f"[judge] {name}: {len({s.id for s in log.samples or []})} cases x {epochs} runs; grader {meta.get('grader')}, "
+          f"rubric {meta.get('rubric')}")
+    current[name] = {}
+    for metric in (s.name for s in log.results.scores):
+        if runs := _per_epoch(log, metric):
+            mean = statistics.fmean(runs)
+            current[name][metric] = mean
+            print(f"    {metric:<24}{mean:>7.3f} ± {statistics.pstdev(runs) if len(runs) > 1 else 0.0:.3f}{_delta(name, metric, mean, base)}")
+    cols = ["all_agree", "facts_agree", "grounded_agree", "language_agree"]
+    for key in ("origin", "kind", "language"):
+        print(f"    by {key}:")
+        _table(breakdown(log, key, cols), cols, "      ")
+    wrong: dict[str, list] = defaultdict(list)
+    for s in log.samples or []:
+        score = next(iter(s.scores.values()))
+        if isinstance(score.value, dict) and score.value.get("all_agree") == 0.0:
+            wrong[s.id].append((s.metadata["kind"], score.explanation))
+    if wrong:
+        print(f"    disagreements with the labels: {len(wrong)} case(s)")
+        for sid, runs in sorted(wrong.items()):
+            kind, why = runs[0]
+            print(f"      {sid} [{kind}] in {len(runs)} of {epochs} run(s): {why}"[:400])
+    errors = [e for s in log.samples or [] for e in s.metadata.get("grader_errors", [])]
+    if errors:
+        print(f"    grading failed {len(errors)} time(s) (scored as missing), e.g. {errors[0]}")
+        print("    FAILED: a judge run is only a measurement if every case was graded; re-run when the grader is available")
+        return False
+    return True
+
+
 # ---- tiers ----------------------------------------------------------------------------------------------------
 
 def _prepare(tier: str, suites: list[str], o: Options) -> tuple[list, list[str]]:
@@ -327,7 +386,8 @@ def _prepare(tier: str, suites: list[str], o: Options) -> tuple[list, list[str]]
 
     from sharepoint_evals.retrieval import indexed
 
-    builders = {"regression": regression_tasks, "capability": capability_tasks, "agent": agent_tasks}[tier]
+    builders = {"regression": regression_tasks, "capability": capability_tasks, "agent": agent_tasks,
+                "judge": judge_tasks}[tier]
     if tier == "agent":
         from sharepoint_evals import agent_harness
         try:
@@ -338,13 +398,16 @@ def _prepare(tier: str, suites: list[str], o: Options) -> tuple[list, list[str]]
     tasks, failed = [], []
     for suite in suites:
         try:
+            if tier == "judge":  # no documents, no index
+                tasks += builders(suite, o)
+                continue
             corpus = load(suite, allow_quick=o.allow_quick)
             if corpus.quick:
                 o.labels.add("quick")
             if suite in NEEDS_INDEX:
                 url = asyncio.run(store.ensure_index(corpus))
                 indexed(corpus, url)
-                if skipped := asyncio.run(store.skipped(url, suite)):
+                if skipped := asyncio.run(store.skipped(url, corpus.name)):
                     # Missing documents lower retrieval scores without being a ranking change: say so.
                     print(f"[{tier}] {suite}: {len(skipped)} of {len(corpus.docs)} documents have no chunks, e.g. "
                           + "; ".join(f"{name} ({why})" for name, why in sorted(skipped.items())[:3]))
@@ -360,13 +423,13 @@ def run_tier(tier: str, excluded: set[str], o: Options) -> bool:
         print("[live] not built yet: it needs a seeded test tenant, the seeder and persona sign-in "
               "(docs/evals.md#build-order, steps 5-6). Failing rather than passing.")
         return False
-    o.labels = set(o.base_labels) | ({"golden drafts"} if tier == "agent" and o.golden_drafts else set())
+    o.labels = set(o.base_labels) | ({"golden drafts"} if tier in ("agent", "judge") and o.golden_drafts else set())
     suites = [s for s in TIERS[tier] if s not in excluded]
     if skipped := [s for s in TIERS[tier] if s in excluded]:
         print(f"[{tier}] excluded, did not run: {', '.join(skipped)}")
     tasks, failed = _prepare(tier, suites, o)
     ok = not failed
-    max_samples = (int(os.environ.get("EVAL_AGENT_CONCURRENCY", "4")) if tier == "agent" else os.cpu_count() or 8)
+    max_samples = (int(os.environ.get("EVAL_AGENT_CONCURRENCY", "4")) if tier in ("agent", "judge") else os.cpu_count() or 8)
     live_check = (_start_live_check(o) if tier == "regression" and "acl_scale" in suites and "acl_scale" not in failed
                   else None)
     logs = _run(tasks, o, max_samples=max_samples) if tasks else []
@@ -384,13 +447,17 @@ def run_tier(tier: str, excluded: set[str], o: Options) -> bool:
             ok &= report_gates(log)
             if _name(log) == "extraction_robustness":
                 report_extraction(log, o)
+        elif tier == "judge":
+            ok &= report_judge(log, base, current)
         else:
-            ok &= report_agent(log, base, current)
+            ok &= report_agent(log, base, current, o.allow_missing_data)
     if o.labels:
         print(f"[{tier}] results are{_label(o)}: not comparable with a full run")
+    partial = any((log.eval.metadata or {}).get("skipped_missing_data") for log in logs if log is not None)
     if o.write_baseline and current:
-        if o.labels or not ok:
-            print(f"[{tier}] not writing baselines from a {'failed' if not ok else _label(o).strip()} run")
+        if o.labels or not ok or partial:
+            print(f"[{tier}] not writing baselines from a "
+                  f"{'failed' if not ok else 'partial (items skipped for missing files)' if partial else _label(o).strip()} run")
         else:
             BASELINES.write_text(json.dumps({**base, **current}, indent=2, sort_keys=True) + "\n", "utf-8")
             print(f"[{tier}] baselines written to {BASELINES}")
@@ -442,16 +509,32 @@ def main() -> None:
     parser.add_argument("--exclude", action="append", default=[], metavar="SUITE", help="run the tier without this suite")
     parser.add_argument("--allow-quick", action="store_true", help="accept suites built with --quick (results labelled quick)")
     parser.add_argument("--sample", type=int, metavar="N", help="N cases per task, same checks (results labelled sampled)")
-    parser.add_argument("--epochs", type=int, default=3, help="agent tier: runs per question (default 3)")
-    parser.add_argument("--golden-drafts", action="store_true", help="agent tier: score draft golden items too")
+    parser.add_argument("--epochs", type=int, default=None,
+                        help="agent and judge tiers: runs per question (default 3; the judge tier shows how much the grader's verdicts vary)")
+    parser.add_argument("--golden-drafts", action="store_true", help="agent and judge tiers: score draft golden items and judge cases too")
+    parser.add_argument("--only", action="append", default=[], metavar="ID",
+                        help="agent tier: run only these golden items (e.g. g-0001), on a corpus of just what they need; "
+                             "the other agent suites are left out")
+    parser.add_argument("--allow-missing-data", action="store_true",
+                        help="agent tier: don't fail when items skipped for files missing under data/ carry permission checks "
+                             "(without the flag the gate would pass over fewer items than it claims)")
     parser.add_argument("--update-snapshot", action="store_true", help="regression: rewrite the extraction snapshot")
     parser.add_argument("--write-baseline", action="store_true", help="record this run's numbers in evals/baselines.json")
     parser.add_argument("--log-dir", default=None, help="Inspect log directory (default: ./logs)")
     args = parser.parse_args()
     o = Options(args.log_dir, args.sample, args.allow_quick, args.epochs, args.golden_drafts, args.update_snapshot,
-                args.write_baseline)
+                args.write_baseline, args.allow_missing_data)
     if args.sample:
         o.base_labels.add("sampled")
+    if args.only:
+        if args.tier != "agent":
+            parser.error("--only picks golden items, so it needs the agent tier: run.py agent --only g-0001")
+        os.environ["EVAL_GOLDEN_ONLY"] = ",".join(args.only)
+        o.golden_drafts = True
+        o.base_labels.add("smoke test")
+        args.exclude += [s for s in TIERS["agent"] if s != "golden" and s not in args.exclude]  # a smoke test is the golden suite
+    if o.golden_drafts:
+        os.environ["EVAL_GOLDEN_DRAFTS"] = "1"
     if args.tier == "_acl_live_check":
         return _acl_live_check(o)
     known = {s for suites in TIERS.values() for s in suites}

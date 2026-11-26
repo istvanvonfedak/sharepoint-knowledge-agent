@@ -17,7 +17,8 @@ docker compose --env-file .env -f infra/docker-compose.yml up -d
 |---|---|---|---|
 | `regression` | `synthetic` (`extraction_regression`, `acl_regression`, `verification_regression`), `acl_scale` (+ `acl_scale_controls`, and again in a second process under `UNRESOLVED_ACL_POLICY=live_check`), `extraction_robustness` | Postgres with pgvector, `GEMINI_API_KEY` (embeddings), `data/` built | Every gate 1.0 |
 | `capability` | `synthetic` (`retrieval_capability`), `retrieval_multilingual`, `retrieval_identifiers`, `answer_quality` (FinanceBench retrieval, no LLM), `acl_scale` (`acl_scale_recall`) | The same | Hybrid above the floors in `run.py` `FLOORS` |
-| `agent` | `answer_quality`, `agent_safety`, `golden` | The same, plus `ASK_MODEL` (Gemini by default, with the same key) and a grader (`EVAL_GRADER_MODEL`, default `google_genai:gemini-pro-latest`) | No leaked canary, no foreign link, no golden permission failure; the rest is tracked |
+| `agent` | `answer_quality`, `agent_safety`, `golden` | The same, plus `ASK_MODEL` (default `openai:gpt-6-luna`; needs `OPENAI_API_KEY`) and a grader (`EVAL_GRADER_MODEL`, default `openai:gpt-6-sol` at `reasoning_effort` medium; `EVAL_GRADER_KWARGS` passes it settings, e.g. `{"reasoning_effort": "high"}`) | No leaked canary, no foreign link, no golden permission failure; the rest is tracked |
+| `judge` | `golden_judge`: the grader against 93 hand-labelled cases (56 synthetic, 37 real agent answers) (`golden/judge.jsonl`) | Only `EVAL_GRADER_MODEL` (no agent, database or documents) | None yet: reports where the grader agrees, falsely accepts and falsely rejects |
 | `live` | Not built yet (needs a seeded test tenant) | | Fails, so it can't pass by accident |
 
 Options:
@@ -25,7 +26,9 @@ Options:
 - `--sample N`: N cases per task (a fixed shuffle), same checks; results are labelled `sampled`.
 - `--allow-quick`: accept suites built with `--quick`; results are labelled `quick`. Without it they are refused.
 - `--epochs N` (agent, default 3): runs per question; the report gives the mean ± spread across runs.
-- `--golden-drafts` (agent): score `draft` golden items too. Only `reviewed` items are scored otherwise.
+- `--allow-missing-data` (agent): skipped golden items (their manuals aren't under `data/`) that carry permission checks fail the run, because the gate would pass over fewer items than it claims. This accepts that. A run with items skipped also never writes baselines.
+- `--golden-drafts` (agent, judge): score `draft` golden items (judge: cases) too. Only `reviewed` items are scored otherwise.
+- `--only ID` (agent, repeatable): run just these golden items (drafts included) on a corpus of only what they need, in its own database (`golden_only`). A seconds-long smoke test: `run agent --only g-0001 --epochs 1` (the other agent suites are left out, and validation covers only these items).
 - `--write-baseline`: record this run's numbers in `evals/baselines.json` (refused for sampled or quick runs). Every run prints the change from it.
 - `--update-snapshot` (regression): rewrite `evals/snapshots/extraction_robustness.json` after a reviewed extractor change.
 
@@ -79,3 +82,4 @@ A full build downloads about 2.5 GB (most of it streamed, not kept) and takes 20
 - Connection pools are per Inspect run and are dropped, not closed, when the run ends. `run all` therefore holds up to 8 idle connections per suite until the process exits: fine locally, and worth closing properly before this runs against a shared server.
 - Inspect logs (`logs/`) hold document text, Enron email included: treat them like `data/`.
 - `evals/golden/` items are drafts until two people have read them (see [docs/evals.md](../docs/evals.md#golden-set)).
+- Golden items that cite the Army manuals need them under `data/manuals/`; without them those items are skipped (not failed) and the run says how to fetch them (`scripts/fetch_golden_files.py`).

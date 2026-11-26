@@ -17,6 +17,7 @@ agent looked at, and a grader can see the cited sources' text.
 import asyncio
 import json
 import mimetypes
+import re
 import time
 from dataclasses import dataclass, field
 from urllib.parse import parse_qs, unquote
@@ -117,6 +118,15 @@ class Run:
         """Item ids of the returned sources (final or partial), by link."""
         by_link = {store.web_url(corpus.name, d.name): d.name for d in corpus.docs}
         return [by_link[s["link"]] for s in (self.result.sources if self.result else []) if s.get("link") in by_link]
+
+    def cited_pages(self, corpus: Corpus) -> dict[str, set[int]]:
+        """Document -> the pages of it the returned sources were found on (a section label ends in 'Page N')."""
+        by_link = {store.web_url(corpus.name, d.name): d.name for d in corpus.docs}
+        pages: dict[str, set[int]] = {}
+        for s in self.result.sources if self.result else []:
+            if (doc := by_link.get(s.get("link"))):
+                pages.setdefault(doc, set()).update(int(n) for sec in s.get("sections", []) for n in re.findall(r"Page (\d+)\s*$", sec))
+        return pages
 
     def summary(self) -> dict:
         r = self.result
@@ -227,7 +237,8 @@ async def ask(corpus: Corpus, persona: str, question: str, model=None) -> Run:
     try:
         run.result = await agent.ask(model or ask_model(), question, tools(corpus, persona, run),
                                      max_steps=settings.ASK_MAX_STEPS, max_tokens=settings.ASK_MAX_TOKENS,
-                                     timeout_seconds=settings.ASK_TIMEOUT_SECONDS, sandbox=sandbox())
+                                     timeout_seconds=settings.ASK_TIMEOUT_SECONDS, sandbox=sandbox(),
+                                     region=corpus.regions.get(persona))
     except Exception as e:  # the server would surface this as a tool error; score it as a failed run
         run.error = f"{type(e).__name__}: {e}"[:500]
     run.seconds = round(time.monotonic() - started, 2)
