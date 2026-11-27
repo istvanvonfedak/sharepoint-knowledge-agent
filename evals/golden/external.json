@@ -11,252 +11,302 @@
     "army/M101_trailer_TM9-2330-202-14P.pdf": {
      "bytes": 6634285,
      "sha256": "35327517d37a2d3696bd1e2ae8f6de6be4c04c5d8983590e9f54c5cb6f6ece7f",
-     "pages": 415
+     "pages": 415,
+     "covers": "M101 3/4-ton cargo trailer"
     },
     "army/M105_trailer_manual_TM9-2330-324-14P.pdf": {
      "bytes": 7744321,
      "sha256": "e0875502741862eedea89f4b6e1dc8c04ae63d001d3180c8c67665c1d1a1d8b7",
-     "pages": 350
+     "pages": 350,
+     "covers": "M105 1-1/2-ton cargo trailer"
     },
     "army/TM 10-5411-205-13 Shelter, Electrical Equipment S-250  5 May 1990 (1).pdf": {
      "bytes": 1631883,
      "sha256": "48048936f5ed37161c91e307a5a896abeb57fe5fc1afd77b3ad2d34549a6d7c8",
-     "pages": 128
+     "pages": 128,
+     "covers": "S-250 electrical equipment shelter"
     },
     "army/TM 9-2320 -260-34-1 AIR FORCE TO 36A12-1C-1122-1.pdf": {
      "bytes": 8134626,
      "sha256": "77a4501a8ed7fa493559b9c4c9c4ca501e593e9df2880756163564a667dd976f",
-     "pages": 660
+     "pages": 660,
+     "covers": "M809-series 5-ton 6x6 truck"
     },
     "army/TM 9-2320-260-10 AIR FORCE TO 36A12-1C-481.pdf": {
      "bytes": 4927440,
      "sha256": "438a4fa23bf554cfb2651eb44fcc6875ccef8687320db796771affbb03a95578",
-     "pages": 413
+     "pages": 413,
+     "covers": "M809-series 5-ton 6x6 truck"
     },
     "army/TM 9-2320-260-20 AIR FORCE TO 36A12-1C-491.pdf": {
      "bytes": 21629670,
      "sha256": "b9ba83a17fc879782ea93056f6c675d7e6459ef58e27983bcc03f6f8815af423",
-     "pages": 1338
+     "pages": 1338,
+     "covers": "M809-series 5-ton 6x6 truck"
     },
     "army/TM 9-2320-260-34-2 AIR FORCE TO 36A12-1C-1122-2.pdf": {
      "bytes": 13268894,
      "sha256": "5c62eb806d45743e9aa48a427cd5dff66d8a9fc7dfee60594d1f313fee46d421",
-     "pages": 864
+     "pages": 864,
+     "covers": "M809-series 5-ton 6x6 truck"
     },
     "army/TM 9-2320-272-24-1 AIR FORCE TO 36A12-1C-1155-2-1.pdf": {
      "bytes": 16697844,
      "sha256": "25e622740c0e5a3940fdf3781f3290c2387aae4bb40d251f9e467ff8aef73af6",
-     "pages": 1020
+     "pages": 1020,
+     "covers": "M939-series 5-ton 6x6 truck"
     },
     "army/TM 9-2320-272-24-2 AIR FORCE TO 36A12-1C-1155-2-2.pdf": {
      "bytes": 17293695,
      "sha256": "69575029d78bda0dd5d3a65aebc64170d4febd2c703b2c24071719f9ed0d3fd5",
-     "pages": 996
+     "pages": 996,
+     "covers": "M939-series 5-ton 6x6 truck"
     },
     "army/TM 9-2320-272-24-3 AIR FORCE TO 36A12-1C-1155-2-3.pdf": {
      "bytes": 14682966,
      "sha256": "6faa04461562ff17af3e89906b6fcebffc8d63f807d0a02da2dc87a3061f5d77",
-     "pages": 800
+     "pages": 800,
+     "covers": "M939-series 5-ton 6x6 truck"
     },
     "army/TM 9-2320-272-24-4 AIR FORCE TO 36A12- 1 C- 1155-2-4.pdf": {
      "bytes": 13164388,
      "sha256": "719fd86769a28e28bd81f8f6bcf67c80168333c51509309643703414042a999b",
-     "pages": 841
+     "pages": 841,
+     "covers": "M939-series 5-ton 6x6 truck"
     },
     "army/TM 9-2320-272-24P-1 AIR FORCE TO 36A12-1C-1155-4-1.pdf": {
      "bytes": 9269098,
      "sha256": "195aab55e6bb8ff263942e56e4dad14b513ab6f58647d5e93b7ab2e6df0a8909",
-     "pages": 963
+     "pages": 963,
+     "covers": "M939-series 5-ton 6x6 truck"
     },
     "army/TM 9-2320-272-24P-1.pdf": {
      "bytes": 9544360,
      "sha256": "6510bc68b6c5e5e1d15c77798269d9717f7a5eec45a41841509fe6540bfa6e5d",
-     "pages": 963
+     "pages": 963,
+     "covers": "M939-series 5-ton 6x6 truck"
     },
     "army/TM 9-2320-279-24P-1.pdf": {
      "bytes": 20990233,
      "sha256": "84d528002c8b39b2cb0ee35fad765cb55ee7c85afd06a0918d19bc595444aa4c",
-     "pages": 1469
+     "pages": 1469,
+     "covers": "HEMTT (M977-series 8x8 truck)"
     },
     "army/TM 9-2320-279-34-1.pdf": {
      "bytes": 16122472,
      "sha256": "5757bb679c79013aa22117d402bcd9ac764b99033d8c272bf1cb0d2520374368",
-     "pages": 781
+     "pages": 781,
+     "covers": "HEMTT (M977-series 8x8 truck)"
     },
     "army/TM 9-2320-279-34-2.pdf": {
      "bytes": 10894711,
      "sha256": "630908e29b767a7688be1dad31f57835337a419fa26f58eb510cab30431200e4",
-     "pages": 661
+     "pages": 661,
+     "covers": "HEMTT (M977-series 8x8 truck)"
     },
     "army/TM 9-2320-279-34-3.pdf": {
      "bytes": 15752743,
      "sha256": "7e0acef808a6cb21a796449b957871d5bb745bc7e4edd13c05239fc0a6988a25",
-     "pages": 851
+     "pages": 851,
+     "covers": "HEMTT (M977-series 8x8 truck)"
     },
     "army/TM 9-2320-280-10 AIR FORCE TO 36A12-1A-2091-1.pdf": {
      "bytes": 4830688,
      "sha256": "bba1d1b5e69d99dbf4ce807e8770444892fda9dcbdaabf4b2982e22ab4d8f74f",
-     "pages": 421
+     "pages": 421,
+     "covers": "HMMWV (M998-series 1-1/4-ton 4x4)"
     },
     "army/TM 9-2320-280-10-wChg3.pdf": {
      "bytes": 7829413,
      "sha256": "6d5d8033cd82020ecb7d293ce6ff2201c5bdab066d5ff7eedb8de538e2e5aafd",
-     "pages": 420
+     "pages": 420,
+     "covers": "HMMWV (M998-series 1-1/4-ton 4x4)"
     },
     "army/TM 9-2320-280-20-1 AIR FORCE TO 36A12-1A-2092-1-1.pdf": {
      "bytes": 15401615,
      "sha256": "7399bb682a8315ad1505b15c08b76ba348aab80b24db8fb9d9f06f99956a2ff8",
-     "pages": 890
+     "pages": 890,
+     "covers": "HMMWV (M998-series 1-1/4-ton 4x4)"
     },
     "army/TM 9-2320-280-20-2 AIR FORCE TO 36A12-1A-2092-1-2.pdf": {
      "bytes": 14257945,
      "sha256": "0a6f8089a861aa901b4b70f931045457dded87f6c619a5129189898cc6dd0d74",
-     "pages": 954
+     "pages": 954,
+     "covers": "HMMWV (M998-series 1-1/4-ton 4x4)"
     },
     "army/TM 9-2320-280-20-3 AIR FORCE TO 36A12-1A-2092-1-3.pdf": {
      "bytes": 17916166,
      "sha256": "90d11ebb3df0daa718faa23ea8b404da684af6fd26d80ce45cb0545de475f467",
-     "pages": 1170
+     "pages": 1170,
+     "covers": "HMMWV (M998-series 1-1/4-ton 4x4)"
     },
     "army/TM 9-2320-280-20-3-wChg2.pdf": {
      "bytes": 31643048,
      "sha256": "193681ee45d00084cd885f4c70bb79ddf58417a18e2d25824e04f371dadec6a9",
-     "pages": 1171
+     "pages": 1171,
+     "covers": "HMMWV (M998-series 1-1/4-ton 4x4)"
     },
     "army/TM 9-2320-280-24P-1-wChg2.pdf": {
      "bytes": 23491734,
      "sha256": "8d8c134e3561baf798c67cfd18f4994eb4af723a854e98b47d229ad9ef444624",
-     "pages": 1155
+     "pages": 1155,
+     "covers": "HMMWV (M998-series 1-1/4-ton 4x4)"
     },
     "army/TM 9-2320-280-24P-2 AIR FORCE TO 36A12-1A-3044-2.pdf": {
      "bytes": 6885575,
      "sha256": "b5711f295925989c172037db89a6b19425ff498feacdd7949c4ea26edea37588",
-     "pages": 1020
+     "pages": 1020,
+     "covers": "HMMWV (M998-series 1-1/4-ton 4x4)"
     },
     "army/TM 9-2320-280-24P-2-wChg2.pdf": {
      "bytes": 19054060,
      "sha256": "8622b14aaac357854440dddc6b3c88cd968c2d6c21177896774f83b8166b9dc1",
-     "pages": 1050
+     "pages": 1050,
+     "covers": "HMMWV (M998-series 1-1/4-ton 4x4)"
     },
     "army/TM 9-2320-280-24P-2.pdf": {
      "bytes": 14009473,
      "sha256": "9b6b2ab9b3e913fe74c7d18a8137457a50a02a93327ad95ca3a0548bb031e563",
-     "pages": 1020
+     "pages": 1020,
+     "covers": "HMMWV (M998-series 1-1/4-ton 4x4)"
     },
     "army/TM 9-2320-280-34 AIR FORCE TO 36A12-1A-2092-3.pdf": {
      "bytes": 20285177,
      "sha256": "722b4ec8ff79f8d4e441e0ffb7155a7bbaa8e35cce9d813a0167c290cb928fda",
-     "pages": 1305
+     "pages": 1305,
+     "covers": "HMMWV (M998-series 1-1/4-ton 4x4)"
     },
     "army/TM 9-2320-283-24P.pdf": {
      "bytes": 4752266,
      "sha256": "c1edd973de39a2337cc81ff50031dfe4cdd4530c45df24886e496d051f1213c3",
-     "pages": 501
+     "pages": 501,
+     "covers": "M915-series line-haul tractor"
     },
     "army/TM 9-2320-289-2 0 ARMY TM 9-2320-289-2 0 AIR FORCE TO 36A12-1A-2082-1.pdf": {
      "bytes": 10719570,
      "sha256": "b5d0175691c65c814560060a9f49c0a043a2049ea6d792a001ff574d04bd14e8",
-     "pages": 940
+     "pages": 940,
+     "covers": "CUCV (M1008-series 1-1/4-ton 4x4)"
     },
     "army/TM 9-2320-289-20P ARMY TM 9-2320-289-20P AIR FORCE TO 36A12-1A-2084-1.pdf": {
      "bytes": 6074921,
      "sha256": "a41c387ff67381c090ab074fb8a8e2e7a3e3e132e89222dd3ac18cb419f7bb2f",
-     "pages": 724
+     "pages": 724,
+     "covers": "CUCV (M1008-series 1-1/4-ton 4x4)"
     },
     "army/TM 9-2320-289-34 ARMY TM 9-2320-289-34 AIR FORCE TO 36A12-1A-2082-2.pdf": {
      "bytes": 10221923,
      "sha256": "b0587ac2f00465aa0c098ccebf74d3d425c5a1896421a267a916b3223759fc82",
-     "pages": 1024
+     "pages": 1024,
+     "covers": "CUCV (M1008-series 1-1/4-ton 4x4)"
     },
     "army/TM 9-2320-289-34P.pdf": {
      "bytes": 10180950,
      "sha256": "3049dd7080f7623d070aaf61a4469c984666faea7c5e182f1df4635b241a3e03",
-     "pages": 984
+     "pages": 984,
+     "covers": "CUCV (M1008-series 1-1/4-ton 4x4)"
     },
     "army/TM 9-2320-360-10.pdf": {
      "bytes": 31960477,
      "sha256": "16c42476dfb2a07cb7ab65fcb7c309abe36551660a8fc774ae98f3cba7ad60f8",
-     "pages": 832
+     "pages": 832,
+     "covers": "M1070 heavy equipment transporter (HET)"
     },
     "army/TM 9-2320-360-20-3.pdf": {
      "bytes": 4207540,
      "sha256": "e1d342f0807f3bbdc655d4fe8d3a25e00c0abcc187358415447528c774e725e4",
-     "pages": 317
+     "pages": 317,
+     "covers": "M1070 heavy equipment transporter (HET)"
     },
     "army/TM 9-2320-360-24P.pdf": {
      "bytes": 14077635,
      "sha256": "27eb077ae9220d8975c32ff7a58d3390a23248b839f19fedd65754a155ab6d1c",
-     "pages": 1073
+     "pages": 1073,
+     "covers": "M1070 heavy equipment transporter (HET)"
     },
     "army/TM 9-2320-361-24-1 AIR FORCE TO 36A12-1B-1094-1.pdf": {
      "bytes": 9474961,
      "sha256": "0362626753963e0aa31cfa7611ebf8e8363a1b07d8b7cef14fd1e14eec376c5c",
-     "pages": 1176
+     "pages": 1176,
+     "covers": "M44A2-series 2-1/2-ton 6x6 truck"
     },
     "army/TM 9-2320-365-10 AIR FORCE T.O. 36A12-1B-1095-1.pdf": {
      "bytes": 48780694,
      "sha256": "1dbb0ceff0b0495e5fdafb578661ba78bec5cbc3f8b4307377b4331c61be6c62",
-     "pages": 836
+     "pages": 836,
+     "covers": "LMTV (M1078-series 2-1/2-ton 4x4)"
     },
     "army/TM 9-2320-365-20-1 AIR FORCE T.O. 36A12-1B-1095-2-1.pdf": {
      "bytes": 132628077,
      "sha256": "84a89fc845ecfe68a31e27577e2c492d7d322669fa34baf9b3a772f4d3ddab44",
-     "pages": 1760
+     "pages": 1760,
+     "covers": "LMTV (M1078-series 2-1/2-ton 4x4)"
     },
     "army/TM 9-2320-365-20-2 AIR FORCE T.O. 36A12-1B-1095-2-2.pdf": {
      "bytes": 104158181,
      "sha256": "a89ba076d100973eaa9ae9a2b145c907b9ceb3b4130780bbee66b9f57cf3f5ef",
-     "pages": 1432
+     "pages": 1432,
+     "covers": "LMTV (M1078-series 2-1/2-ton 4x4)"
     },
     "army/TM 9-2320-365-20-3 AIR FORCE T.O. 36A12-1B-1095-2-3.pdf": {
      "bytes": 138082710,
      "sha256": "d4c5498a1f299e7916bfab9ba0611bbc42a756c3bad9b96c2db171efe7bcfc5e",
-     "pages": 1268
+     "pages": 1268,
+     "covers": "LMTV (M1078-series 2-1/2-ton 4x4)"
     },
     "army/TM 9-2320-365-20-4 AIR FORCE T.O. 36A12-1B-1095-2-4.pdf": {
      "bytes": 102498569,
      "sha256": "cdae10c6384196f5f73c6cc72c3988a3558bb01dc9a92d8002f1718212b0868d",
-     "pages": 968
+     "pages": 968,
+     "covers": "LMTV (M1078-series 2-1/2-ton 4x4)"
     },
     "army/TM 9-2320-365-20-5 AIR FORCE T.O. 36A12-1B-1095-2-5.pdf": {
      "bytes": 79654637,
      "sha256": "98d52a7892ddbe7b4e227571b654f001fa0a9d397141794b483eb26acbac837c",
-     "pages": 666
+     "pages": 666,
+     "covers": "LMTV (M1078-series 2-1/2-ton 4x4)"
     },
     "army/TM 9-2320-365-24P AIR FORCE T.O. 36A12-1B-1095-24.O. 36A12-1B-1095-24.pdf": {
      "bytes": 54719743,
      "sha256": "93d1b5276510a3bdbe1cd534a88ccde2e43fa16683b1802c62c3595303c41680",
-     "pages": 1264
+     "pages": 1264,
+     "covers": "LMTV (M1078-series 2-1/2-ton 4x4)"
     },
     "army/TM 9-2320-365-34-1 AIR FORCE T.O. 36A12-1B-1095-12-1.pdf": {
      "bytes": 112660981,
      "sha256": "6ce38d99d6b812341ab35c95933e7e14720f9c2c19395dfd5c272b8559106763",
-     "pages": 1334
+     "pages": 1334,
+     "covers": "LMTV (M1078-series 2-1/2-ton 4x4)"
     },
     "army/TM 9-2320-365-34-2 AIR FORCE T.O. 36A12-1B-1095-12-2.pdf": {
      "bytes": 144605556,
      "sha256": "eea78fe64add28058e8969a1b4972649dae6f123debcc611291402bc21710b2a",
-     "pages": 1414
+     "pages": 1414,
+     "covers": "LMTV (M1078-series 2-1/2-ton 4x4)"
     },
     "army/TM 9-2320-366-24P-1.pdf": {
      "bytes": 92664825,
      "sha256": "0f91890d4f00a13f40806ffbb940b239024f716c6bff150d3549d75566f00f42",
-     "pages": 1496
+     "pages": 1496,
+     "covers": "MTV (M1083-series 5-ton 6x6)"
     },
     "army/TM 9-2320-366-24P-2.pdf": {
      "bytes": 16715321,
      "sha256": "825a9162bbcf95d6fd4b6d08ae24e71c6949199239874498d2c6bc9fcce1e31f",
-     "pages": 962
+     "pages": 962,
+     "covers": "MTV (M1083-series 5-ton 6x6)"
     },
     "army/TM 9-2320-387-10-wChg6.pdf": {
      "bytes": 19988558,
      "sha256": "702ca87b237553f38486e5088f96ad469abb722d7be5c12415a3d6a18614e9e5",
-     "pages": 442
+     "pages": 442,
+     "covers": "HMMWV (M998-series 1-1/4-ton 4x4)"
     },
     "army/TM 9-2330-392-14-P M1102 & M1102 Trailer.pdf": {
      "bytes": 5072421,
      "sha256": "4be98cd0284cfdd1b2c8f32a9d6cfabd8b801def8e178d6bbbf1bc69da0ebd85",
-     "pages": 342
+     "pages": 342,
+     "covers": "M1101/M1102 2-wheel cargo trailer"
     }
    }
   }

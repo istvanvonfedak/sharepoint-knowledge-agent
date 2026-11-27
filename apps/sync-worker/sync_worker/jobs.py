@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from pathlib import PurePosixPath
 
 from psycopg_pool import AsyncConnectionPool
-from sharepoint_rag import embeddings, generations, index_store, inference, queue
+from sharepoint_rag import describe, embeddings, generations, index_store, inference, queue
 from sharepoint_rag.acl import AclRead
 from sharepoint_rag.chunk import Chunk
 from sharepoint_rag.embeddings import RateLimited
@@ -322,7 +322,8 @@ async def index_item(ctx: Context, payload: dict) -> None:
     try:
         acl_read = await _read_acl(ctx, drive[1], drive_id, item_id)  # before the download: see "Newest permissions win"
         data = await ctx.graph.download(drive_id, item_id, config.MAX_FILE_BYTES)
-        chunks = await asyncio.to_thread(index_store.chunk_rows, item.name, data)
+        title = await describe.title(item.name, data)  # None (the file's name) unless DOC_CONTEXT_MODEL is set
+        chunks = await asyncio.to_thread(index_store.chunk_rows, item.name, data, title)
         del data  # no file copies are kept
         vectors = {}
         texts = [Chunk(c.heading_path or "", c.text).embedding_text for c in chunks]

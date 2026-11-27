@@ -1,7 +1,7 @@
 {
   "_comment": "Who may read each golden document: the expected visibility the seeder sets up in the test tenant, and the permission lists a local run indexes. The longest matching prefix wins. Unresolved files keep their true principals (the live check's answer) but are indexed as unresolved, like a file shared through a SharePoint site group.",
   "personas": {
-    "alice": {"user": "alice", "groups": [], "is_member": true, "region": "United States"},
+    "alice": {"user": "alice", "groups": [], "is_member": true},
     "hr": {"user": "hana", "groups": ["hr"], "is_member": true},
     "exec": {"user": "eve", "groups": ["execs"], "is_member": true},
     "outsider": {"user": "oscar", "groups": [], "is_member": true},

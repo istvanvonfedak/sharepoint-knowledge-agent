@@ -14,7 +14,7 @@ from pathlib import PurePosixPath
 import psycopg
 from psycopg import sql
 
-from . import acl, generations, language, queue
+from . import acl, describe, generations, language, queue
 from .acl import AclRead
 from .chunk import Chunk, chunk_sections
 from .extract import extract
@@ -47,8 +47,9 @@ class ChunkRow:
 # The version of what chunk_rows makes of a file. Bump it whenever that changes (extraction, chunking, headings,
 # language detection): files indexed by an older version are then no longer current, and each drive's next sync
 # is a full crawl, so unchanged files are re-indexed too. 2: the document title starts every heading path.
-# 3: PDFs are read to 5,000 pages, not 500.
-INDEX_VERSION = 3
+# 3: PDFs are read to 5,000 pages, not 500. 4: with DOC_CONTEXT_MODEL set, a PDF's title carries a line on what it is
+# for (describe.py); a version of its own, so turning that on or off re-indexes.
+INDEX_VERSION = 4 if describe.MODEL else 3
 
 
 def chunk_rows(name: str, data: bytes, title: str | None = None) -> list[ChunkRow]:

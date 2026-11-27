@@ -29,7 +29,7 @@ from inspect_ai.scorer import Score, Target, scorer
 from inspect_ai.solver import Generate, TaskState, solver
 
 from sharepoint_evals import golden, grader
-from sharepoint_evals.agent_evals import present_mean, try_grade
+from sharepoint_evals.agent_evals import epochs_of, present_mean, try_grade
 from sharepoint_evals.common import MOCK, set_output
 
 STATUSES = {"draft", "reviewed", "retired"}
@@ -166,6 +166,6 @@ def golden_judge(epochs: int = 3, include_drafts: bool = False) -> Task:
                       metadata={"kind": c["metadata"]["kind"], "language": c["inputs"]["language"], "status": c["metadata"]["status"],
                                 "origin": c["metadata"]["origin"].split(":")[0], "case": c})
                for c in rows]
-    return Task(dataset=MemoryDataset(samples), solver=grade_case(), scorer=judge_scores(), model=MOCK, epochs=epochs,
+    return Task(dataset=MemoryDataset(samples), solver=grade_case(), scorer=judge_scores(), model=MOCK, epochs=epochs_of(epochs),
                 metadata={"suite": "golden_judge", "drafts": include_drafts, "grader": grader.MODEL,
                           "rubric": grader.rubric("golden")[1]})

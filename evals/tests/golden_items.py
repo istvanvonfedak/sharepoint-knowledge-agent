@@ -1,7 +1,7 @@
 """Helpers for tests that build golden or judge items: change a field without saying which bucket it lives in."""
 import copy
 
-INPUTS = {"question", "persona"}
+INPUTS = {"question", "persona", "region"}
 METADATA = {"id", "status", "kind", "language", "origin", "author", "reviewer", "added", "notes"}
 JUDGE_INPUTS = {"question", "language", "reference", "facts", "answer", "sources"}
 

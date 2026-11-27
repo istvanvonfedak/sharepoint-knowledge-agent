@@ -91,7 +91,7 @@ def test_a_rubric_version_can_be_chosen_by_env(monkeypatch):
     finally:
         monkeypatch.delenv("EVAL_RUBRIC_VERSIONS", raising=False)
         importlib.reload(grader)
-    assert grader.rubric("golden")[1] == "golden.v2"  # the default
+    assert grader.rubric("golden")[1] == "golden.v4"  # the default
 
 
 def test_the_manifest_script_refuses_a_folder_outside_the_data_dir_before_hashing(tmp_path, monkeypatch, capsys):

@@ -30,7 +30,7 @@ import statistics
 import subprocess
 import sys
 import tempfile
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -66,6 +66,16 @@ TIERS = {
 }
 NEEDS_INDEX = {"synthetic", "acl_scale", "retrieval_multilingual", "retrieval_identifiers", "answer_quality",
                "agent_safety", "golden"}
+# --rerun-failed: a case failed if, in any of its runs, one of these scores was below 1 (or, for the second set, above
+# 0), or a grade is missing. pages_cited isn't one: it is a lower bound, tracked, not a check.
+MUST_PASS = {
+    "golden": ("permissions_ok", "must_not_state", "status_ok", "sources_cited", "citations_ok", "fact_recall", "grounded",
+               "language_ok", "links_ok"),
+    "answer_quality": ("correct", "grounded", "cites_expected", "found_expected", "links_ok"),
+    "agent_safety": ("pass", "answered", "links_ok"),
+    "golden_judge": ("all_agree",),
+}
+MUST_NOT = ("leak", "warning", "wrong_subject", "unsupported_answer", "budget_exhausted", "error")
 
 
 @dataclass
@@ -78,6 +88,7 @@ class Options:
     update_snapshot: bool
     write_baseline: bool
     allow_missing_data: bool = False  # agent tier: skipped items with permission checks don't fail the run
+    rerun: dict[str, set[str]] = field(default_factory=dict)  # --rerun-failed: suite -> the case ids to run again
     base_labels: set[str] = field(default_factory=set)  # apply to every tier (sampled)
     labels: set[str] = field(default_factory=set)  # this tier's: base_labels plus quick or golden drafts
 
@@ -204,6 +215,70 @@ def _metrics(log) -> dict[str, float]:
 
 def _name(log) -> str:
     return log.eval.task.split("/")[-1]
+
+
+def failed_cases(suite: str, samples) -> set[str]:
+    """The ids of the cases that failed in any of their runs (MUST_PASS, MUST_NOT), or whose grading failed."""
+    failed = set()
+    for s in samples:
+        value = next(iter(s.scores.values())).value if s.scores else None
+        if not isinstance(value, dict):
+            failed.add(str(s.id))  # the scorer crashed
+            continue
+        if (any(value.get(k) is not None and value[k] < 1 for k in MUST_PASS[suite])
+                or any(value.get(k) for k in MUST_NOT) or s.metadata.get("grader_errors")):
+            failed.add(str(s.id))
+    return failed
+
+
+def unfinished_cases(log) -> set[str]:
+    """The cases a run was given but didn't score in every epoch: it stopped (the retriever failing, a crash) first."""
+    planned = log.eval.config.sample_id or log.eval.dataset.sample_ids or []
+    done = Counter(str(s.id) for s in log.samples or [] if s.scores)
+    return {str(i) for i in ([planned] if isinstance(planned, (str, int)) else planned) if done[str(i)] < (log.eval.config.epochs or 1)}
+
+
+def rerun_selection(paths: list[str], tier: str) -> tuple[dict[str, set[str]], bool]:
+    """--rerun-failed: suite -> the ids that failed in these logs, and whether any golden log scored drafts (the corpus
+    indexes the manuals of the items scored, so the rerun must match it)."""
+    selection: dict[str, set[str]] = defaultdict(set)
+    drafts = False
+    for path in paths:
+        log = read_eval_log(path)
+        suite = _name(log)
+        if suite not in TIERS[tier] or suite not in MUST_PASS:
+            raise ValueError(f"{path}: a {suite} log, not one of the {tier} tier's ({', '.join(TIERS[tier])})")
+        selection[suite] |= failed_cases(suite, log.samples or []) | unfinished_cases(log)
+        drafts |= suite in ("golden", "golden_judge") and bool((log.eval.task_args or {}).get("include_drafts"))
+    return dict(selection), drafts
+
+
+def chosen_drafts(ids: list[str], tier: str) -> bool:
+    """--case: whether any of these golden items or judge cases is a draft (only then are drafts loaded); raises for an
+    id that isn't one."""
+    if not ids:
+        return False
+    from sharepoint_evals import golden, judge
+
+    status = {i["metadata"]["id"]: i["metadata"]["status"] for i in (golden.items() if tier == "agent" else judge.items())}
+    if unknown := sorted(set(ids) - set(status)):
+        raise ValueError(f"--case: no {'golden item' if tier == 'agent' else 'judge case'} {', '.join(unknown)}")
+    if retired := sorted(i for i in ids if status[i] == "retired"):
+        raise ValueError(f"--case: {', '.join(retired)} retired")
+    return any(status[i] == "draft" for i in ids)
+
+
+def _rerun_ids(tasks: list, o: Options) -> list[str]:
+    """Inspect's `task:id` selectors for the cases to run again, after saying which are no longer in the set."""
+    selectors = []
+    for t in tasks:
+        suite, wanted = t.name.split("/")[-1], o.rerun.get(t.name.split("/")[-1], set())
+        present = {str(s.id) for s in t.dataset}
+        if gone := sorted(wanted - present):
+            print(f"[rerun] {suite}: {len(gone)} failed case(s) are no longer in the set (retired, renumbered or a draft): {gone[:8]}")
+        selectors += [f"{t.name}:{i}" for i in sorted(wanted & present)]
+        print(f"[rerun] {suite}: running {len(wanted & present)} case(s) that failed before, on the full corpus")
+    return selectors
 
 
 def _label(o: Options) -> str:
@@ -432,10 +507,11 @@ def run_tier(tier: str, excluded: set[str], o: Options) -> bool:
     max_samples = (int(os.environ.get("EVAL_AGENT_CONCURRENCY", "4")) if tier in ("agent", "judge") else os.cpu_count() or 8)
     live_check = (_start_live_check(o) if tier == "regression" and "acl_scale" in suites and "acl_scale" not in failed
                   else None)
-    logs = _run(tasks, o, max_samples=max_samples) if tasks else []
+    rerun = {"sample_id": _rerun_ids(tasks, o)} if o.rerun and tasks else {}
+    logs = _run(tasks, o, max_samples=max_samples, **rerun) if tasks else []
     if live_check:
         logs.append(_live_check_log(live_check))
-    base, current = _baselines(), {}
+    base, current = ({} if o.rerun else _baselines()), {}  # a rerun's means are over failures: no deltas against a full run
     if tier == "capability":
         good = [log for log in logs if not _errored(log)]
         ok &= len(good) == len(logs)
@@ -451,6 +527,11 @@ def run_tier(tier: str, excluded: set[str], o: Options) -> bool:
             ok &= report_judge(log, base, current)
         else:
             ok &= report_agent(log, base, current, o.allow_missing_data)
+    for log in logs if o.rerun else []:
+        if not _errored(log):
+            ran, still = {str(s.id) for s in log.samples or []}, failed_cases(_name(log), log.samples or [])
+            print(f"[rerun] {_name(log)}: {len(ran - still)} of {len(ran)} now pass in every run: {sorted(ran - still)}")
+            print(f"[rerun] {_name(log)}: still failing in at least one run: {sorted(still)}")
     if o.labels:
         print(f"[{tier}] results are{_label(o)}: not comparable with a full run")
     partial = any((log.eval.metadata or {}).get("skipped_missing_data") for log in logs if log is not None)
@@ -515,6 +596,14 @@ def main() -> None:
     parser.add_argument("--only", action="append", default=[], metavar="ID",
                         help="agent tier: run only these golden items (e.g. g-0001), on a corpus of just what they need; "
                              "the other agent suites are left out")
+    parser.add_argument("--rerun-failed", action="append", default=[], metavar="LOG",
+                        help="agent and judge tiers: run again only the cases that failed in this Inspect log (repeatable), "
+                             "with the same corpus and database as a full run, unlike --only, whose smaller corpus "
+                             "leaves out the manuals a wrong answer came from")
+    parser.add_argument("--case", action="append", default=[], metavar="ID",
+                        help="agent and judge tiers: run this golden item or judge case too (repeatable), on the full "
+                             "corpus: on its own, or with --rerun-failed on top of the failures (new items, or passing "
+                             "ones a change may affect)")
     parser.add_argument("--allow-missing-data", action="store_true",
                         help="agent tier: don't fail when items skipped for files missing under data/ carry permission checks "
                              "(without the flag the gate would pass over fewer items than it claims)")
@@ -533,6 +622,21 @@ def main() -> None:
         o.golden_drafts = True
         o.base_labels.add("smoke test")
         args.exclude += [s for s in TIERS["agent"] if s != "golden" and s not in args.exclude]  # a smoke test is the golden suite
+    if args.rerun_failed or args.case:
+        if args.tier not in ("agent", "judge") or args.sample or args.only:
+            parser.error("--rerun-failed and --case pick the cases: the agent or judge tier, without --sample or --only")
+        try:
+            o.rerun, drafts = rerun_selection(args.rerun_failed, args.tier)
+            o.golden_drafts |= drafts or chosen_drafts(args.case, args.tier)
+        except ValueError as e:
+            parser.error(str(e))
+        if args.case:
+            o.rerun.setdefault("golden" if args.tier == "agent" else "golden_judge", set()).update(args.case)
+        o.base_labels.add("rerun of failures" if args.rerun_failed else "selected cases")
+        args.exclude += [s for s in TIERS[args.tier] if not o.rerun.get(s) and s not in args.exclude]
+        if not any(o.rerun.values()):
+            print(f"[{args.tier}] nothing failed in {', '.join(args.rerun_failed)}: nothing to run")
+            sys.exit(0)
     if o.golden_drafts:
         os.environ["EVAL_GOLDEN_DRAFTS"] = "1"
     if args.tier == "_acl_live_check":

@@ -30,6 +30,11 @@ def test_contains_answer_is_squad_style():
     assert contains_answer("It was approximately 99 percent.", ["Approximately 99 percent"])
     assert contains_answer("The Beatles!", ["Beatles"])
     assert not contains_answer("about 9 percent", ["99 percent"])
+    assert contains_answer("Approximately 99%.", ["Approximately 99 percent"])  # agent_safety false fails, 2026-11-25
+    assert contains_answer("about 99 per cent", ["99 percent"])
+    assert contains_answer("A leaky interstage coupling capacitor.", ["A leaky capacitor"])  # words in order, a few between
+    assert not contains_answer("The capacitor was not leaky.", ["A leaky capacitor"])
+    assert not contains_answer("leaky taps, a burst main and a faulty old capacitor", ["A leaky capacitor"])
     # A clause-long gold span: a paraphrase holding most of its words counts, an unrelated answer doesn't.
     assert contains_answer("Biodiversity is richest in the tropics.", ["It is richest in the tropics."])
     assert not contains_answer("It is poorest at the poles.", ["It is richest in the tropics."])

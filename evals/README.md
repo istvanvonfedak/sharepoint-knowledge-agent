@@ -29,8 +29,12 @@ Options:
 - `--allow-missing-data` (agent): skipped golden items (their manuals aren't under `data/`) that carry permission checks fail the run, because the gate would pass over fewer items than it claims. This accepts that. A run with items skipped also never writes baselines.
 - `--golden-drafts` (agent, judge): score `draft` golden items (judge: cases) too. Only `reviewed` items are scored otherwise.
 - `--only ID` (agent, repeatable): run just these golden items (drafts included) on a corpus of only what they need, in its own database (`golden_only`). A seconds-long smoke test: `run agent --only g-0001 --epochs 1` (the other agent suites are left out, and validation covers only these items).
+- `--rerun-failed LOG` (agent, judge; repeatable): run again only the cases that failed in that Inspect log (in any of its runs: a check below 1, a leak, a wrong subject, an unsupported answer, a grading error, a tool error), and those a stopped run never finished, on the full corpus and database, unlike `--only`. It reports which now pass in every run and never writes baselines. Evals cost money: this is the default way to check a fix.
+- `--case ID` (agent, judge; repeatable): run this golden item or judge case too, on the full corpus: new items, or passing ones a change may affect. On its own it runs just these.
 - `--write-baseline`: record this run's numbers in `evals/baselines.json` (refused for sampled or quick runs). Every run prints the change from it.
 - `--update-snapshot` (regression): rewrite `evals/snapshots/extraction_robustness.json` after a reviewed extractor change.
+
+Index builds aren't traced in LangSmith even with `LANGSMITH_TRACING=true`: a re-index would be hundreds of traces against the account's monthly limit. The agent's runs are traced.
 
 A single task can also run directly, e.g. `.venv/bin/inspect eval evals/sharepoint_evals/retrieval_bench.py@retrieval_multilingual -T mode=vector`.
 

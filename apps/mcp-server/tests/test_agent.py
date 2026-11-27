@@ -179,6 +179,37 @@ async def test_no_fix_round_without_room_left():
     assert result.sources[0]["quote"] == "22 working days"
 
 
+async def test_when_no_citation_checks_out_on_the_last_step_the_fix_may_take_one_step_more():
+    """A table's columns interleaved in a PDF's text: every quote is rejected, and without the fix round the right
+    answer would go back with no source at all."""
+    model = FakeModel([
+        reply(call("search", {"query": "leave", "limit": 5})),
+        final({"source_id": "S1", "quote": "22 working days of annual leave, part-time pro rata"}),
+        final({"source_id": "S1", "quote": "22 working days … annual leave"}),
+    ])
+    result = await run(model, max_steps=2)
+    assert "interleaved" in model.requests[2][-1].content
+    assert result.status == "answered" and result.steps == 3 and result.sources[0]["quote"] == "22 working days … annual leave"
+
+
+async def test_an_answer_without_a_citation_that_checks_out_is_not_found():
+    model = FakeModel([
+        reply(call("search", {"query": "leave", "limit": 5})),
+        final(),  # found yes, no citations: asked once to cite
+        final({"source_id": "S1", "quote": "not in the document"}),
+    ])
+    result = await run(model)
+    assert "no citations" in model.requests[2][-1].content
+    assert result.status == "not_found" and result.sources == [] and result.steps == 3
+
+
+@pytest.mark.parametrize("prompt", [agent.SYSTEM, agent.SYSTEM_SANDBOX])
+def test_the_prompt_applies_a_region_only_where_the_documents_differ_by_region(prompt):
+    assert "names no country or region applies to everyone" in prompt and "Don't add the user's region" in prompt
+    assert "never from a document number alone" in prompt
+    assert "PDF page N" in prompt  # the file's page, which can differ from the one printed on it
+
+
 async def test_quotes_may_join_pieces_with_an_ellipsis():
     """Table cells aren't next to each other in extracted text; pieces in order, each verbatim, are a valid quote."""
     model = FakeModel([

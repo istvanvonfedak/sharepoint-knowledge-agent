@@ -14,6 +14,7 @@ stalling or aborting the whole suite.
 import asyncio
 import hashlib
 import inspect
+import json
 import os
 import re
 import sys
@@ -22,14 +23,16 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
 import psycopg
+from langsmith.run_helpers import tracing_context
 from pgvector.psycopg import register_vector_async
 from psycopg import sql
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
 import sharepoint_rag.chunk as chunk_module
+import sharepoint_rag.describe as describe_module
 import sharepoint_rag.extract as extract_module
 import sharepoint_rag.index_store as index_store_module
 import sharepoint_rag.language as language_module
-from sharepoint_rag import config, db, generations, index_store, inference
+from sharepoint_rag import config, db, describe, generations, index_store, inference
 from sharepoint_rag.acl import AclRead
 from sharepoint_rag.chunk import Chunk
 from sharepoint_rag.extract import TEXT_EXTENSIONS, ExtractionError
@@ -58,8 +61,9 @@ def _code_hash() -> str:
     h = hashlib.sha256(f"{config.EMBEDDING_MODEL}:{config.EMBEDDING_DIMENSIONS}".encode())
     # Chunking/extraction code is part of the index: changing it must re-extract every document, otherwise the
     # evals would keep scoring a stale index and could not show the effect of the change.
-    for module in (chunk_module, extract_module, index_store_module, language_module, extract_worker):
+    for module in (chunk_module, extract_module, index_store_module, language_module, extract_worker, describe_module):
         h.update(Path(module.__file__).read_bytes())
+    h.update(f"{describe.MODEL}:{describe.MODEL_KWARGS}".encode())  # DOC_CONTEXT_MODEL: PDFs' titles carry a description
     h.update(inspect.getsource(index_title).encode() + repr(GENERATED_NAMES).encode())  # what titles the chunks get
     return h.hexdigest()
 
@@ -95,6 +99,42 @@ def index_title(doc: Doc, suite: str) -> str:
     return "" if pattern and re.fullmatch(pattern, stem) else stem
 
 
+DESCRIPTIONS = embed_cache.PATH.parent / "descriptions.json"
+
+
+async def describe_pdfs(docs: list[Doc]) -> dict[str, str]:
+    """Doc name -> describe.py's line for each PDF when DOC_CONTEXT_MODEL is set (as the sync-worker writes it into the
+    title), cached by model, prompt and file hash under data/.cache/, so a rebuild gets the same lines and a suite is
+    described once. A failed description raises: a run would otherwise score an index without some of them."""
+    if not describe.MODEL:
+        return {}
+    cache = json.loads(DESCRIPTIONS.read_text("utf-8")) if DESCRIPTIONS.exists() else {}
+    setup = hashlib.sha256(f"{describe.MODEL}:{describe.MODEL_KWARGS}:{describe.PROMPT}".encode()).hexdigest()[:16]
+    keys = {d.name: f"{setup}:{hashlib.sha256(d.read()).hexdigest()}" for d in docs if PurePosixPath(d.name.lower()).suffix == ".pdf"}
+    limit = asyncio.Semaphore(8)
+
+    async def one(name: str) -> tuple[str, str | None]:
+        async with limit:
+            doc = next(d for d in docs if d.name == name)
+            text = await asyncio.to_thread(describe.lead, doc.name, doc.read())
+            return name, (await describe.describe(doc.name, text) if text else "")  # no text at the start: no line
+
+    todo = [n for n, k in keys.items() if k not in cache]
+    if todo:
+        print(f"[index] describing {len(todo)} PDF(s) with {describe.MODEL}", file=sys.stderr)
+    failed = []
+    for name, line in await asyncio.gather(*(one(n) for n in todo)):
+        if line is None:
+            failed.append(name)
+        else:
+            cache[keys[name]] = line
+    DESCRIPTIONS.parent.mkdir(parents=True, exist_ok=True)
+    DESCRIPTIONS.write_text(json.dumps(cache, indent=1, ensure_ascii=False, sort_keys=True) + "\n", "utf-8")
+    if failed:
+        raise RuntimeError(f"describing failed for {len(failed)} PDF(s), e.g. {failed[0]}: run again (the rest are cached)")
+    return {n: cache[k] for n, k in keys.items() if cache[k]}
+
+
 def chunk_file(path: str, name: str, title: str | None = None) -> list[ChunkRow] | str:
     """What the indexer stores for a file (index_store.chunk_rows), or the extraction error. Module-level so a
     process pool can run it."""
@@ -104,14 +144,15 @@ def chunk_file(path: str, name: str, title: str | None = None) -> list[ChunkRow]
         return f"{type(e).__name__}: {e}"
 
 
-async def _chunks(doc: Doc, suite: str, pool: ProcessPoolExecutor, isolated: asyncio.Semaphore) -> list[ChunkRow] | str:
+async def _chunks(doc: Doc, suite: str, pool: ProcessPoolExecutor, isolated: asyncio.Semaphore,
+                  line: str | None = None) -> list[ChunkRow] | str:
+    title = f"{index_title(doc, suite)} [{line}]".strip() if line else index_title(doc, suite)
     if PurePosixPath(doc.name.lower()).suffix in IN_PROCESS:
-        return await asyncio.get_running_loop().run_in_executor(pool, chunk_file, str(doc.path), doc.name,
-                                                                index_title(doc, suite))
+        return await asyncio.get_running_loop().run_in_executor(pool, chunk_file, str(doc.path), doc.name, title)
     from sharepoint_evals.extraction import run_isolated
 
     async with isolated:
-        result = await run_isolated(doc.path, doc.name, rows=True, time_limit=EXTRACT_SECONDS, title=index_title(doc, suite))
+        result = await run_isolated(doc.path, doc.name, rows=True, time_limit=EXTRACT_SECONDS, title=title)
     if result["outcome"] == "chunks":
         return [ChunkRow(*row) for row in result["rows"]]
     return [] if result["outcome"] == "no_text" else f"{result['outcome']}: {result.get('message', '')}"
@@ -122,7 +163,8 @@ RETRY = "retry:"  # stamp prefix of a file killed or crashed in extraction: neve
 
 async def _write(conn, corpus: Corpus, gen, docs: list[Doc], stamps: dict[str, str], pool: ProcessPoolExecutor) -> None:
     isolated = asyncio.Semaphore(WORKERS)
-    results = await asyncio.gather(*(_chunks(d, corpus.name, pool, isolated) for d in docs))
+    lines = await describe_pdfs(docs)
+    results = await asyncio.gather(*(_chunks(d, corpus.name, pool, isolated, lines.get(d.name)) for d in docs))
     texts = [Chunk(r.heading_path or "", r.text).embedding_text for rows in results if isinstance(rows, list) for r in rows]
     vectors = iter(await inference.embed(gen.model, texts, "document", gen.dimensions))
     read_at = datetime.now(timezone.utc)
@@ -141,7 +183,16 @@ async def _write(conn, corpus: Corpus, gen, docs: list[Doc], stamps: dict[str, s
 
 
 async def ensure_index(corpus: Corpus) -> str:
-    """Brings the suite's database up to date with the corpus and returns its URL. Idempotent."""
+    """Brings the suite's database up to date with the corpus and returns its URL. Idempotent.
+
+    Untraced even with LANGSMITH_TRACING on: each embedding batch and description would be a trace of its own
+    (hundreds for a re-index, against the account's monthly trace limit), and a traced batch also costs a token count
+    request. The agent's runs, which do want tracing, aren't affected."""
+    with tracing_context(enabled=False):
+        return await _ensure_index(corpus)
+
+
+async def _ensure_index(corpus: Corpus) -> str:
     embed_cache.install()
     url = database_url(corpus.name)
     _create_database_if_missing(url)

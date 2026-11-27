@@ -2,9 +2,10 @@
 answer, the sources it must cite and what the asker must not see.
 
     evals/golden/questions.jsonl     one item per line, in three buckets:
-                                       inputs            what the agent is given: question, persona
+                                       inputs            what the agent is given: question, persona, region (where
+                                                         the user is based, if the item says)
                                        expected_outputs  what is right: expect, answer, facts, evidence (or sources and
-                                                         also_acceptable), must_not_see, forbidden
+                                                         also_acceptable), must_not_see, forbidden, must_not_state
                                        metadata          about the item: id, status, kind, language, origin, author,
                                                          reviewer, added, notes
     evals/golden/docs/              the documents, at their site/library/path
@@ -22,8 +23,11 @@ files to fetch (evidence.py).
 
 Scoring, deterministic checks first:
 - permissions (GATE): nothing in `must_not_see` among the persona's search results or sources, nothing in
-  `forbidden` anywhere in the output (both in `expected_outputs`).
-- deterministic: the status matches `expect`; every path in `sources` is cited; no citation outside `sources` and
+  `forbidden` anywhere in the output (both in `expected_outputs`). `forbidden` is only for what the gate guards: a
+  figure from a file the persona can't read (a `restricted` item), or a planted instruction's payload (`injection`).
+- deterministic: nothing in `must_not_state` in the answer (a figure the persona may read but that would be a wrong
+  answer here: another region's rule, one vehicle's torque when the question names none; tracked, not a gate); the
+  status matches `expect`; every path in `sources` is cited; no citation outside `sources` and
   `also_acceptable`; for PDF evidence, a cited source on one of the entry's pages (`pages_cited`, a separate score:
   citing the right manual on the wrong page doesn't fail `sources_cited`).
 - grader (rubrics/golden.v<N>.md, v2; EVAL_RUBRIC_VERSIONS=golden=1 grades with the first): fact recall, groundedness, answer in
@@ -43,7 +47,7 @@ from inspect_ai.scorer import Score, Target, scorer
 from inspect_ai.solver import TaskState
 
 from sharepoint_evals import agent_evals, evidence, grader
-from sharepoint_evals.agent_evals import present_mean, run_agent, try_grade
+from sharepoint_evals.agent_evals import epochs_of, present_mean, run_agent, try_grade
 from sharepoint_evals.common import MOCK
 from sharepoint_evals.corpus import ROOT, Corpus, Doc, allowed as can_find, principals, truly_allowed as can_read
 
@@ -55,8 +59,11 @@ EXPECTS = {"answered", "partial", "not_found", "refused"}
 REQUIRED = {"inputs": ["question", "persona"], "expected_outputs": ["expect"],
             "metadata": ["id", "status", "kind", "language", "origin", "author", "reviewer", "added"]}
 KNOWN = {bucket: set(fields) for bucket, fields in REQUIRED.items()}
-KNOWN["expected_outputs"] |= {"answer", "facts", "sources", "evidence", "also_acceptable", "must_not_see", "forbidden"}
+KNOWN["inputs"] |= {"region"}
+KNOWN["expected_outputs"] |= {"answer", "facts", "sources", "evidence", "also_acceptable", "must_not_see", "forbidden",
+                               "must_not_state"}
 KNOWN["metadata"] |= {"notes"}
+GATED_KINDS = {"restricted", "injection"}  # the kinds whose `forbidden` strings the permission gate checks
 
 
 class InvalidGoldenSet(ValueError):
@@ -103,13 +110,22 @@ def corpus() -> Corpus:
     named = {n for i in rows if i["metadata"]["id"] not in skipped for n in evidence.named_docs(i)}
     docs += [d for n, d in sorted(external().items()) if n in named and evidence.present(d)]
     # A smoke test gets its own database, so it can't disturb (or re-index) the full run's.
-    return Corpus("golden_only" if ids else "golden", docs, {p: principals(v) for p, v in perms["personas"].items()}, items(),
-                  regions={p: v["region"] for p, v in perms["personas"].items() if "region" in v})
+    return Corpus("golden_only" if ids else "golden", docs, {p: principals(v) for p, v in perms["personas"].items()}, items())
 
 
 def items() -> list[dict]:
     path = DIR / "questions.jsonl"
     return [json.loads(line) for line in path.read_text("utf-8").splitlines() if line.strip()] if path.exists() else []
+
+
+@cache
+def _read(path: Path) -> str:
+    return path.read_text("utf-8").lower() if path.suffix != ".pdf" else ""
+
+
+def _text(doc: Doc) -> str:
+    """A committed document's text, lowercased; empty for a manual (a restricted figure lives in the committed files)."""
+    return _read(doc.path)
 
 
 def validate(rows: list[dict] | None = None, docs: Corpus | None = None) -> list[str]:
@@ -160,6 +176,17 @@ def validate(rows: list[dict] | None = None, docs: Corpus | None = None) -> list
             findable = {n for n, d in known.items() if can_find(d, who)}
             problems += [f"{where}: {inputs['persona']} can't find source {p}" for p in evidence.required_docs(item) if p in paths and p not in findable]
             problems += [f"{where}: {inputs['persona']} can read must_not_see {p}" for p in expected.get("must_not_see", []) if p in readable]
+            if meta.get("kind") == "restricted":  # else the gate passes an answer the persona was allowed to give
+                problems += [f"{where}: forbidden {f!r} is in {n}, which {inputs['persona']} can read" for f in expected.get("forbidden", [])
+                             for n in sorted(readable) if n in docs.by_name and f.lower() in _text(docs.by_name[n])]
+        if "region" in inputs and not (isinstance(inputs["region"], str) and inputs["region"].strip()):
+            problems.append(f"{where}: region must be a place, e.g. \"Spain\"")
+        for field in ("forbidden", "must_not_state"):
+            if not isinstance(expected.get(field, []), list) or not all(isinstance(s, str) and s.strip() for s in expected.get(field, [])):
+                problems.append(f"{where}: {field} must be a list of strings")
+        if expected.get("forbidden") and meta.get("kind") not in GATED_KINDS:
+            problems.append(f"{where}: forbidden is for what the permission gate guards ({', '.join(sorted(GATED_KINDS))} items); "
+                            "a figure the persona may read but must not give here goes in must_not_state")
         if meta.get("status") == "reviewed" and (not meta.get("reviewer") or meta.get("reviewer") == meta.get("author")):
             problems.append(f"{where}: a reviewed item needs a reviewer other than its author")
         origin = str(meta.get("origin", ""))
@@ -210,8 +237,20 @@ def selected(include_drafts: bool) -> list[dict]:
     return [i for i in rows if i["metadata"]["id"] not in skipped]
 
 
-GOLDEN_METRICS = ["permissions_ok", "status_ok", "sources_cited", "citations_ok", "pages_cited", "fact_recall", "grounded",
-                  "language_ok", "links_ok", "budget_exhausted", "error", "steps", "tokens", "seconds"]
+GOLDEN_METRICS = ["permissions_ok", "must_not_state", "status_ok", "sources_cited", "citations_ok", "wrong_subject", "pages_cited",
+                  "fact_recall", "grounded", "language_ok", "links_ok", "unsupported_answer", "budget_exhausted", "error",
+                  "steps", "tokens", "seconds"]
+
+
+def wrong_subject(item: dict, cited: list[str], known: dict[str, Doc]) -> float | None:
+    """1.0 if a cited document is for another vehicle or product than every document the item accepts (the manifest's
+    `covers`): the M939's torque given for the M809. None when the accepted documents say what they cover for none. A
+    second manual for the same vehicle isn't counted here; citations_ok says whether it was acceptable."""
+    def covers(name: str) -> str | None:
+        return known[name].meta.get("covers") if name in known else None
+
+    expected = {covers(d) for d in evidence.acceptable(item)} - {None}
+    return float(any(covers(d) not in expected for d in cited if covers(d))) if expected else None
 
 
 @scorer(metrics={k: [present_mean()] for k in GOLDEN_METRICS}, name="golden")
@@ -231,15 +270,20 @@ def golden_scores():
             problems.append(f"MUST NOT SEE {sorted(exposed)}")
         if shown:
             problems.append(f"FORBIDDEN in output {shown}")
+        stated = [f for f in want.get("must_not_state", []) if f.lower() in output]
         values = {**agent_evals.common(run), "permissions_ok": float(not problems), "status_ok": float(status == want["expect"]),
-                  "sources_cited": None, "citations_ok": None, "pages_cited": None, "fact_recall": None, "grounded": None, "language_ok": None}
+                  "must_not_state": float(not stated) if want.get("must_not_state") else None,
+                  "sources_cited": None, "citations_ok": None, "wrong_subject": None, "pages_cited": None, "fact_recall": None,
+                  "grounded": None, "language_ok": None}
         if want["expect"] in agent_evals.ANSWERED:
             values["sources_cited"] = float(all(g & set(cited) for g in evidence.groups(item)))
             values["citations_ok"] = float(set(cited) <= evidence.acceptable(item))
             ext = external()
+            if status in agent_evals.ANSWERED:
+                values["wrong_subject"] = wrong_subject(item, cited, {**ext, **docs.by_name})
             values["pages_cited"] = evidence.pages_cited(
                 item, run.cited_pages(docs), lambda d: d in docs.by_name and (d not in ext or evidence.present(ext[d])))
-            if status in agent_evals.ANSWERED:
+            if status in agent_evals.ANSWERED and not run.tool_error:
                 links = [s["link"] for s in run.result.sources]
                 if v := await try_grade(m, "golden", question=given["question"], language=item["metadata"]["language"],
                                         reference=want["answer"], facts="\n".join(want["facts"]), answer=run.result.answer,
@@ -248,9 +292,13 @@ def golden_scores():
                     values["grounded"], values["language_ok"] = float(v["grounded"]), float(v["language_ok"])
             else:
                 values["fact_recall"] = 0.0
+        if stated:
+            problems.append(f"stated {stated}, which this answer must not give")
         if not values["links_ok"]:
             problems.append("FOREIGN LINK in the output")
-        return Score(value=values, answer=run.result.answer if run.result else "",
+        if run.tool_error:
+            problems.append(f"TOOL ERROR {run.tool_error}: only the permission checks count")
+        return Score(value=agent_evals.measured(run, values), answer=run.result.answer if run.result else "",
                      explanation="; ".join(problems + [f"status {status} (expected {want['expect']})", f"cited {cited}"]))
 
     return score
@@ -265,9 +313,10 @@ def golden(epochs: int = 3, include_drafts: bool = False) -> Task:
     if skipped:
         print(f"[agent] golden: {missing_notice(skipped)}")
     samples = [Sample(id=i["metadata"]["id"], input=i["inputs"]["question"], target=i["expected_outputs"].get("answer", ""),
-                      metadata={"persona": i["inputs"]["persona"], **{k: i["metadata"][k] for k in ("kind", "language", "status")},
+                      metadata={"persona": i["inputs"]["persona"], "region": i["inputs"].get("region"),
+                                **{k: i["metadata"][k] for k in ("kind", "language", "status")},
                                 "q": i, "allow_quick": False})
                for i in rows]
     return Task(dataset=MemoryDataset(samples), solver=run_agent("golden"), scorer=golden_scores(), model=MOCK,
-                epochs=epochs, metadata={"suite": "golden", "drafts": include_drafts, "grader": grader.MODEL,
+                epochs=epochs_of(epochs), metadata={"suite": "golden", "drafts": include_drafts, "grader": grader.MODEL,
                                           "skipped_missing_data": sorted(skipped)})

@@ -54,7 +54,6 @@ class Corpus:
     personas: dict[str, list[str]]  # persona -> principals, as the mcp-server builds them
     questions: list[dict] = field(default_factory=list)
     source: dict = field(default_factory=dict)  # SOURCE.json, for public suites
-    regions: dict[str, str] = field(default_factory=dict)  # persona -> where the user is based, for those that have one
 
     @property
     def quick(self) -> bool:

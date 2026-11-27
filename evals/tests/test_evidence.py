@@ -190,7 +190,9 @@ def test_the_committed_manifest_is_well_formed():
     for source, spec in evidence.manifest(golden.DIR)["sources"].items():
         assert spec["acl"] and spec["download"].endswith("/")
         for name, info in spec["files"].items():
-            assert set(info) == {"bytes", "sha256", "pages"} and info["pages"] >= 1 and len(info["sha256"]) == 64, name
+            assert {"bytes", "sha256", "pages"} <= set(info) <= {"bytes", "sha256", "pages", "covers"}, name
+            assert info["pages"] >= 1 and len(info["sha256"]) == 64, name
+            assert source != "manuals" or info.get("covers"), name  # wrong_subject needs every manual's vehicle
 
 
 def test_only_restricts_the_corpus_and_gets_its_own_database(monkeypatch):

@@ -15,6 +15,7 @@ Every tool call is recorded (`Run.calls`), with the text each source returned, s
 agent looked at, and a grader can see the cited sources' text.
 """
 import asyncio
+import contextlib
 import json
 import mimetypes
 import re
@@ -101,6 +102,8 @@ class Run:
     texts: dict[str, list[str]] = field(default_factory=dict)  # link -> texts the tools returned for it
     seconds: float = 0.0
     error: str | None = None
+    # A search or read that raised (the database, the embedding provider): the run then measures that, not the agent.
+    tool_error: str | None = None
 
     def seen(self, tools=("search", "read_around", "read_file", "sandbox")) -> set[str]:
         """Item ids a search returned or the agent tried to read (a folder listing only shows names), including the
@@ -132,7 +135,7 @@ class Run:
         r = self.result
         return {"status": getattr(r, "status", "error"), "answer": getattr(r, "answer", ""), "sources": getattr(r, "sources", []),
                 "steps": getattr(r, "steps", 0), "tokens": getattr(r, "tokens", 0), "seconds": self.seconds,
-                "calls": self.calls, "error": self.error}
+                "calls": self.calls, "error": self.error, "tool_error": self.tool_error}
 
 
 def tools(corpus: Corpus, persona: str, run: Run):
@@ -147,12 +150,30 @@ def tools(corpus: Corpus, persona: str, run: Run):
         if link and text:
             run.texts.setdefault(link, []).append(text)
 
+    @contextlib.contextmanager
+    def retrieving(tool: str, **entry):
+        """A retriever call: if it raises, the failed call is recorded and the run marked (the agent gets the error,
+        as in production). The agent's arguments are checked before this, so a failure here is the infrastructure's."""
+        try:
+            yield
+        except Exception as e:
+            error = f"{type(e).__name__}: {e}"[:300]
+            run.calls.append({"tool": tool, **entry, "items": [], "error": error})
+            run.tool_error = run.tool_error or f"{tool}: {error}"
+            raise
+
+    def note_hit(h) -> None:
+        """A passage with the label the agent saw with it (its file and page or section): the grader must see it too,
+        or a correct "PDF page 230" looks unsupported next to a passage that prints its page as 3-16."""
+        note(h.web_url, f"[index label: {h.heading_path}]\n{h.text}" if h.heading_path else h.text)
+
     async def search(query: str, k: int):
-        retriever = PostgresRetriever(await pool(corpus), mode="hybrid")
-        hits = await retriever.search(query, principals=principals, verify=allow(readable), k=k)
+        with retrieving("search", query=query):
+            retriever = PostgresRetriever(await pool(corpus), mode="hybrid")
+            hits = await retriever.search(query, principals=principals, verify=allow(readable), k=k)
         run.calls.append({"tool": "search", "query": query, "items": [h.item_id for h in hits]})
         for h in hits:
-            note(h.web_url, h.text)
+            note_hit(h)
         return hits
 
     async def read_file(drive_id: str, item_id: str) -> dict:
@@ -172,28 +193,31 @@ def tools(corpus: Corpus, persona: str, run: Run):
         return children
 
     async def nearby(hit, before: int, after: int):
-        retriever = PostgresRetriever(await pool(corpus), mode="hybrid")
-        hits = await retriever.nearby(hit, principals=principals, verify=allow(readable), before=before, after=after)
+        with retrieving("read_around"):
+            retriever = PostgresRetriever(await pool(corpus), mode="hybrid")
+            hits = await retriever.nearby(hit, principals=principals, verify=allow(readable), before=before, after=after)
         run.calls.append({"tool": "read_around", "items": [h.item_id for h in hits]})
         for h in hits:
-            note(h.web_url, h.text)
+            note_hit(h)
         return hits
 
     async def search_files(query: str, k: int):
-        retriever = PostgresRetriever(await pool(corpus), mode="hybrid")
-        hits, files = await retriever.search_with_files(query, principals=principals, verify=allow(readable), k=k)
+        with retrieving("search", query=query):
+            retriever = PostgresRetriever(await pool(corpus), mode="hybrid")
+            hits, files = await retriever.search_with_files(query, principals=principals, verify=allow(readable), k=k)
         run.calls.append({"tool": "search", "query": query, "items": [h.item_id for h in hits]})
         for h in hits:
-            note(h.web_url, h.text)
+            note_hit(h)
         return hits, files
 
     async def read_files(files: list):
         """The whole files written to the sandbox: the agent can read any of them with run."""
-        retriever = PostgresRetriever(await pool(corpus), mode="hybrid")
-        chunks = await retriever.read_files(files, principals=principals, verify=allow(readable))
+        with retrieving("sandbox"):
+            retriever = PostgresRetriever(await pool(corpus), mode="hybrid")
+            chunks = await retriever.read_files(files, principals=principals, verify=allow(readable))
         run.calls.append({"tool": "sandbox", "items": [hs[0].item_id for hs in chunks.values()]})
         for hs in chunks.values():
-            note(hs[0].web_url, "\n".join(h.text for h in hs))
+            note(hs[0].web_url, "\n".join(f"[index label: {h.heading_path}]\n{h.text}" if h.heading_path else h.text for h in hs))
         return chunks
 
     return agent.AskTools(search=search, read_file=read_file, list_items=list_items, nearby=nearby,
@@ -229,7 +253,8 @@ def ask_model():
     return _model
 
 
-async def ask(corpus: Corpus, persona: str, question: str, model=None) -> Run:
+async def ask(corpus: Corpus, persona: str, question: str, model=None, region: str | None = None) -> Run:
+    """`region`: where the user is based, as a golden item's inputs give it (the server passes none yet)."""
     from mcp_server import agent, settings
 
     run = Run(question, persona)
@@ -238,7 +263,7 @@ async def ask(corpus: Corpus, persona: str, question: str, model=None) -> Run:
         run.result = await agent.ask(model or ask_model(), question, tools(corpus, persona, run),
                                      max_steps=settings.ASK_MAX_STEPS, max_tokens=settings.ASK_MAX_TOKENS,
                                      timeout_seconds=settings.ASK_TIMEOUT_SECONDS, sandbox=sandbox(),
-                                     region=corpus.regions.get(persona))
+                                     region=region)
     except Exception as e:  # the server would surface this as a tool error; score it as a failed run
         run.error = f"{type(e).__name__}: {e}"[:500]
     run.seconds = round(time.monotonic() - started, 2)

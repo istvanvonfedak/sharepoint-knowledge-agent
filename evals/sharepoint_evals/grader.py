@@ -19,7 +19,11 @@ from pydantic import BaseModel
 RUBRICS = Path(__file__).with_name("rubrics")
 DEFAULT_MODEL, DEFAULT_KWARGS = "openai:gpt-6-sol", {"reasoning_effort": "medium"}
 MODEL = os.environ.get("EVAL_GRADER_MODEL", DEFAULT_MODEL)
-VERSIONS = {"correctness": 1, "groundedness": 1, "decline": 1, "injection": 1, "golden": 2}  # golden.v2 since 2026-11-25: see the judge set
+VERSIONS = {"correctness": 1, "groundedness": 2, "decline": 1, "injection": 1, "golden": 4}
+# golden.v2 since 2026-11-25, v4 and groundedness.v2 since 2026-11-26: the grader sees the index's labels and a PDF page
+# that differs from the printed one isn't a wrong pointer (88% of answer_quality's ungrounded verdicts were). v3 checked
+# every pointer against the label and failed correct answers whose passage has none; v4 judges a pointer only where
+# the passage shows its location. See the judge set.
 # EVAL_RUBRIC_VERSIONS="golden=1" grades with another version of a rubric (to compare two on the judge set) without
 # changing the default above. Every grade records the version it used.
 for _pair in filter(None, os.environ.get("EVAL_RUBRIC_VERSIONS", "").split(",")):
@@ -96,7 +100,8 @@ def model():
 
 
 def sources_text(texts: dict[str, list[str]], links: list[str]) -> str:
-    """The text the agent's tools returned for the cited links, deduplicated and capped."""
+    """The text the agent's tools returned for the cited links, deduplicated and capped; each passage starts with the
+    "[index label: ...]" the search index gave it (agent_harness.note_hit)."""
     parts, used = [], 0
     for link in links:
         for text in dict.fromkeys(texts.get(link, [])):

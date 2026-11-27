@@ -86,7 +86,7 @@ For callers that want an answer, not raw results. The server runs its own loop, 
 
 - **Tools it can use** (internal, read-only): `search`, `read_around`, `read_file`, `list_items`. With `ASK_SANDBOX=local` they are `search`, `run` and `final_answer` instead: the files its searches found are in the sandbox service, search returns where each hit is in them (lines, section, best matching line) rather than its text, and `run` is a bash command (`rg`, `sed`, ...) over them, so the agent reads only the lines it needs ([Code interpreter](code-interpreter.md)). Files reach the sandbox through the same two permission layers; quotes are checked against the server's own copy of each file, never command output. `read_around` returns the indexed passages just before and after a search hit in its file. It is how the agent reads on in a PDF, which `read_file` can't open, and it often supplies what a passage needs to be understood: a parts table's title and the models it applies to sit on the page before the table.
 - **Permissions:** `search` and `read_around` go through both [permission layers](#permissions). `read_file` and `list_items` call Graph with the user's token, so Graph itself refuses anything the user can't open. The agent can never get more than the user could by calling the tools directly.
-- **Output:** answer text plus sources (title, link, quote, and the `sections` the quotes are in, e.g. `… > Page 401`). A source must be one the loop actually retrieved, and each quote must be in its text: whole, or as pieces in order joined with "…" (cells of a table aren't next to each other in extracted text). If a quote doesn't check out, the model is told why and gets one chance to fix it before it's dropped. The status says how much of the question was answered: `answered`, `partial` (part of it; the answer says what is missing, such as a manual the documents refer to that isn't indexed) or `not_found`, which is a valid answer. A partial answer needs a citation that checks out, or it is `not_found`.
+- **Output:** answer text plus sources (title, link, quote, and the `sections` the quotes are in, e.g. `… > Page 401`). A source must be one the loop actually retrieved, and each quote must be in its text: whole, or as pieces in order joined with "…" (cells of a table aren't next to each other in extracted text). If a quote doesn't check out, the model is told why and gets one chance to fix it before it's dropped. The status says how much of the question was answered: `answered`, `partial` (part of it; the answer says what is missing, such as a manual the documents refer to that isn't indexed) or `not_found`, which is a valid answer. An answer, partial or whole, needs a citation that checks out, or it is `not_found`: a fix round may take one step past the limit when none did, so an answer found on the last step isn't lost.
 - **Tracing:** with `LANGSMITH_TRACING=true` (see `.env.mcp.example`), each call is one `sharepoint_ask` trace: the question in; status, answer and sources out; below it each model call, and each tool call with its arguments and results (`search` and `read_around` as retriever runs). A search's query embedding is an `embed` run inside it, so the trace's cost includes it (the inference-server joins the caller's trace, see [inference-server](#inference-server)).
 - **Limits:** max steps, tokens and time per call, and a per-user rate limit. It sends progress updates while working and returns what it found if it runs out of budget. Counters and token usage live in Postgres, so replicas share them.
 - **Prompt injection:** documents are untrusted. A planted instruction could make the agent read other files the user can open and quote them in its answer. Mitigations: the answer is plain text, links are limited to cited sources, and the agent has no way to call out to any other URL. It still can't be made to read anything the user couldn't read.
@@ -154,6 +154,17 @@ Revisit if we measure one of these:
 3. **Over about 5M chunks**, or indexing outgrows one Postgres.
 
 If so, OpenSearch is the likely next step, with Postgres still the source of truth. This is not planned work.
+
+**What a PDF is for, in every chunk (`DOC_CONTEXT_MODEL`, off by default).** Every chunk's heading path starts with
+its document's title, the file name. For a PDF that is often a number ("TM 9-2320-260-20 ... > Page 613"), so neither
+search nor the agent knows the page is the M809 truck's manual, and a question that names the M809 finds another
+truck's. With `DOC_CONTEXT_MODEL` set (a LangChain model id, e.g. `openai:gpt-6-luna`), the sync-worker asks that
+model once per PDF, from the text of its first three pages, for one line on what the document is and what it covers,
+and adds it to the title: "TM 9-2320-260-20 ... [Unit maintenance manual for M809 Series 5-ton, 6x6 diesel trucks] >
+Page 613". Embedding and keyword search both see it (contextual retrieval, at document level). It costs one short
+model call per PDF version; a failed call indexes the file with its plain title. Turning it on or off changes
+`INDEX_VERSION`, so the next crawl re-indexes. The line comes from document text and is treated like it: one line,
+no link (`sharepoint_rag/describe.py`).
 
 ### Index generations
 

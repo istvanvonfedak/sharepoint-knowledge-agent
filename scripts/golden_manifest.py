@@ -67,17 +67,18 @@ def main() -> int:
         print(f"source {args.source!r} is new: say where its files come from (--download URL) and who may read them "
               f"(--acl PRINCIPAL); the defaults belong to the public-release manuals", file=sys.stderr)
         return 1
+    previous = manifest["sources"].get(args.source, {})
     described, unreadable = {}, []
     for n, path in enumerate(files, 1):
         rel = path.relative_to(args.dir).as_posix()
         try:
-            described[rel] = describe(path)
+            # fields written by hand (covers: the vehicle or product the file is for) are kept
+            described[rel] = {**previous.get("files", {}).get(rel, {}), **describe(path)}
         except Exception as e:  # one bad file doesn't stop the rest; an entry already in the manifest is kept below
             unreadable.append(rel)
             print(f"[{n}/{len(files)}] {rel}: not described ({type(e).__name__}: {e})", file=sys.stderr, flush=True)
             continue
         print(f"[{n}/{len(files)}] {rel}: {described[rel]['pages']} pages", flush=True)
-    previous = manifest["sources"].get(args.source, {})
     here = args.dir.relative_to(DATA.resolve()).as_posix()
     # Merge into what is listed: the files not downloaded here keep their hash and page count, so items citing them
     # are skipped rather than failing validation. --prune drops what isn't on disk.
